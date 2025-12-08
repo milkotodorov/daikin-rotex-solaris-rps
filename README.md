@@ -72,7 +72,7 @@ Und hier einmal im RPS-Gehäuse:
 Die Daten des DAIKIN/ROTEX Solaris RPS3/4 werden über das lokale Netzwerk an HA gesendet. Es gibt zwei Möglichkeiten, wie HA eine Verbindung zum ESP32-Controller herstellen kann:
 
 - Über HTTP-API-Aufrufe
-- MQTT-Broker wie [Mosquitto MQTT](https://mosquitto.org/). Sie müssen HA wie in der [offiziellen HA-Dokumentation](https://www.home-assistant.io/integrations/mqtt/) beschrieben konfigurieren. Außerdem müssen Sie die ESPHome-Konfiguration [solaris.yaml](esp32/solaris.yaml) anpassen, um den [MQTT-Client](https://esphome.io/components/mqtt) einzurichten.
+- MQTT-Broker wie [Mosquitto MQTT](https://mosquitto.org/). Sie müssen HA wie in der [offiziellen HA-Dokumentation](https://www.home-assistant.io/integrations/mqtt/) beschrieben konfigurieren. Außerdem müssen Sie die ESPHome-Konfiguration [solaris.yaml](esphome/solaris.yaml) anpassen, um den [MQTT-Client](https://esphome.io/components/mqtt) einzurichten.
 
 Der DAIKIN/ROTEX Solaris RPS3/4 sendet in jedem konfigurierten Zeitraum (`cycle /s`) die vollständigen Daten, getrennt durch Semikolons. Die Sensoren sind in der YAML Datei definiert, ebenso wie die Parsing-Logik mit Hilfe der Lambdas.
 
@@ -122,7 +122,7 @@ F/W         |  Minimaler Durchfluss V1 während des Startvorgangs nach Ablauf vo
 
 ### Vorbereitung der ESPHome-YAML-Konfiguration
 
-Die Datei [solaris.yaml](esp32/solaris.yaml) muss an Ihre Hardware-Konfiguration angepasst werden:
+Die Datei [solaris.yaml](esphome/solaris.yaml) muss an Ihre Hardware-Konfiguration angepasst werden:
 
   - Passen Sie den Hostnamen und den Anzeigenamen des ESP32-Geräts an.
     ```yaml
@@ -160,7 +160,7 @@ Die Datei [solaris.yaml](esp32/solaris.yaml) muss an Ihre Hardware-Konfiguration
         
 ### ESPHome-Geheimnisse pflegen
 
-Pflegen Sie die folgenden Geheimnisse in der Datei [`secrets.yaml`](esp32/secrets-template.yaml) oder im Abschnitt `SECRETS`, wenn Sie das ESPHome Add-on verwenden:
+Pflegen Sie die folgenden Geheimnisse in der Datei [`secrets.yaml`](esphome/secrets-template.yaml) oder im Abschnitt `SECRETS`, wenn Sie das ESPHome Add-on verwenden:
 ```yaml
 # ESPHome Secrets
 wifi_ssid: "..."
