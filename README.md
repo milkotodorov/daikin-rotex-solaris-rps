@@ -160,7 +160,7 @@ Die Datei [solaris.yaml](esp32/solaris.yaml) muss an Ihre Hardware-Konfiguration
         
 ### ESPHome-Geheimnisse pflegen
 
-Pflegen Sie die folgenden Geheimnisse in der Datei [`secrets.yaml`](esp32/secrets.yaml) oder im Abschnitt `SECRETS`, wenn Sie das ESPHome Add-on verwenden:
+Pflegen Sie die folgenden Geheimnisse in der Datei [`secrets.yaml`](esp32/secrets-template.yaml) oder im Abschnitt `SECRETS`, wenn Sie das ESPHome Add-on verwenden:
 ```yaml
 # ESPHome Secrets
 wifi_ssid: "..."
