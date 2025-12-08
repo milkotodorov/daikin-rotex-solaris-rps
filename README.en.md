@@ -163,7 +163,7 @@ The [solaris.yaml](esp32/solaris.yaml) need to be adapted to match your hardware
 
 ### Maitaining the ESPHome Secrets
 
-Maintain the following Secrets in the [`secrets.yaml`](esp32/secrets.yaml) or in the `SECRETS` section if you use ESPHome Add-on:
+Maintain the following Secrets in the [`secrets.yaml`](esp32/secrets-template.yaml) or in the `SECRETS` section if you use ESPHome Add-on:
 
   ```yaml
   # ESPHome Secrets
