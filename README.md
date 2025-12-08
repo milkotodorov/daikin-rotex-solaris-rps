@@ -152,10 +152,10 @@ Die Datei [solaris.yaml](esphome/solaris.yaml) muss an Ihre Hardware-Konfigurati
   - Passen Sie den verwendeten GPIO-Pin an:
     ```yaml
     uart:
-        id: uart_bus
-        rx_pin: GPIO1 # Change to the GPIO pin you choose to use
-        baud_rate: 9600 # Lower baud rate for more reliable communication
-        parity: NONE # DAIKIN/ROTEX Solaris RPS3/4 uses no parity
+      id: uart_bus
+      rx_pin: GPIO1 # Change to the GPIO pin you choose to use
+      baud_rate: 9600 # Lower baud rate for more reliable communication
+      parity: NONE # DAIKIN/ROTEX Solaris RPS3/4 uses no parity
     ```        
         
 ### ESPHome-Geheimnisse pflegen
