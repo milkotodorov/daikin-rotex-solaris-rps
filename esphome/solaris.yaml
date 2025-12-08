@@ -80,8 +80,8 @@ web_server:
 external_components:
   - source: github://milkotodorov/daikin-rotex-solaris-rps@main
   # - source: # Local copy of the component for development
-      type: local
-      path: components
+  #     type: local
+  #     path: components
     components: [daikin_rotex_solaris]
     refresh: 0s
 
