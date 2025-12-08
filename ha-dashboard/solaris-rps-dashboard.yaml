@@ -1,0 +1,232 @@
+type: panel
+title: Solaris RPS3 Dashboard
+icon: mdi:solar-power-variant
+path: solaris-rps3-dashboard
+cards:
+  - type: custom:floorplan-card
+    config:
+      image: /local/floorplans/solaris_rps/solaris-rps-dashboard.svg
+      stylesheet: /local/floorplans/solaris_rps/solaris-rps-dashboard.css
+      defaults:
+        tap_action: more-info
+      rules:
+        # P1 - Circulation pump (Umwälzpumpe)
+        - element: p1_txt
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: P1
+            - service: floorplan.class_set
+              service_data:
+                class: txt-blue txt-large txt-bold non-clickable
+
+        - entity: sensor.esp_rotex_solaris_rps3_umwalzpumpe
+          element: p1_val
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: ${parseInt(entity.state)}%
+            - service: floorplan.class_set
+              service_data:
+                class: txt-green txt-medium txt-bold
+        
+        # RPS4 only - Booster pump hidden (not available on RPS4).
+        # Comment out P2 section below as well.
+        # - elements:
+        #     - p2_txt
+        #     - cell-p2_txt
+        #     - p2_val
+        #     - cell-p2_val
+        #     - cell-p2_symbol
+        #     - cell-p2_led
+        #   state_action:
+        #     - service: floorplan.class_set
+        #       service_data:
+        #         class: hidden
+
+        # P2 - Booster pump (Boosterpumpe). Available only in RPS3.
+        - element: p2_txt
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: P2
+            - service: floorplan.class_set
+              service_data:
+                class: txt-blue txt-large txt-bold non-clickable
+
+        - entity: binary_sensor.esp_rotex_solaris_rps3_boosterpumpe
+          element: p2_val
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: '${entity.state === "on" ? "ein" : "aus"}'
+            - service: floorplan.class_set
+              service_data:
+                class: txt-green txt-medium txt-bold
+        
+        # PWR - Power (Leistung)
+        - element: pwr_txt
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: P
+            - service: floorplan.class_set
+              service_data:
+                class: txt-yellow txt-large txt-bold non-clickable
+        
+        - entity: sensor.esp_rotex_solaris_rps3_leistung
+          element: pwr_val
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: ${parseFloat(entity.state).toFixed(2)} kW
+            - service: floorplan.class_set
+              service_data:
+                class: txt-yellow txt-medium txt-bold
+        
+        # TK - Collector temperature (Kollektortemperatur)
+        - element: tk_txt
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: Tk
+            - service: floorplan.class_set
+              service_data:
+                class: txt-red txt-large txt-bold non-clickable
+        
+        - entity: sensor.esp_rotex_solaris_rps3_kollektortemperatur
+          element: tk_val
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: ${parseInt(entity.state)} °C
+            - service: floorplan.class_set
+              service_data:
+                class: txt-red txt-medium txt-bold
+        
+        # DF - Flow rate (Durchfluss)
+        - element: df_txt
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: V
+            - service: floorplan.class_set
+              service_data:
+                class: txt-blue txt-large txt-bold non-clickable
+        
+        - entity: sensor.esp_rotex_solaris_rps3_durchfluss
+          element: df_val
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: ${parseFloat(entity.state).toFixed(1)} l/min
+            - service: floorplan.class_set
+              service_data:
+                class: txt-blue txt-medium txt-bold
+        
+        # TV - Flow temperature (Vorlauftemperatur)
+        - element: tv_txt
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: Tv
+            - service: floorplan.class_set
+              service_data:
+                class: txt-blue txt-large txt-bold non-clickable
+        
+        - entity: sensor.esp_rotex_solaris_rps3_vorlauftemperatur
+          element: tv_val
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: ${parseInt(entity.state)} °C
+            - service: floorplan.class_set
+              service_data:
+                class: txt-blue txt-medium txt-bold
+        
+        # TS - Storage temperature (Speichertemperatur)
+        - element: ts_txt
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: Ts
+            - service: floorplan.class_set
+              service_data:
+                class: txt-blue txt-large txt-bold non-clickable
+        
+        - entity: sensor.esp_rotex_solaris_rps3_speichertemperatur
+          element: ts_val
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: ${parseInt(entity.state)} °C
+            - service: floorplan.class_set
+              service_data:
+                class: txt-blue txt-medium txt-bold
+        
+        # TR - Return temperature (Rücklauftemperatur)
+        - element: tr_txt
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: Tr
+            - service: floorplan.class_set
+              service_data:
+                class: txt-blue txt-large txt-bold non-clickable
+        
+        - entity: sensor.esp_rotex_solaris_rps3_rucklauftemperatur
+          element: tr_val
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: ${parseInt(entity.state)} °C
+            - service: floorplan.class_set
+              service_data:
+                class: txt-blue txt-medium txt-bold
+        
+        # BR - Burner contact (Brennerkontakt) text & rectangle box (conditional)
+        - entity: binary_sensor.esp_rotex_solaris_rps3_brennerkontakt
+          element: br_txt
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: Br
+            - service: floorplan.class_set
+              service_data:
+                class: '${entity.state === "on" ? "txt-red txt-medium txt-bold non-clickable visible" : "hidden"}'
+
+        - entity: binary_sensor.esp_rotex_solaris_rps3_brennerkontakt
+          element: cell-bk_txt
+          state_action:
+            - service: floorplan.class_set
+              service_data:
+                class: '${entity.state === "on" ? "visible" : "hidden"}'
+
+        # HA - Manual operation (Handbetrieb) text & circle box (conditional)
+        - entity: binary_sensor.esp_rotex_solaris_rps3_handbetrieb
+          element: ha_txt
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: H
+            - service: floorplan.class_set
+              service_data:
+                class: '${entity.state === "on" ? "txt-yellow txt-large txt-bold visible" : "hidden"}'
+
+        - entity: binary_sensor.esp_rotex_solaris_rps3_handbetrieb
+          element: cell-ha_txt
+          state_action:
+            - service: floorplan.class_set
+              service_data:
+                class: '${entity.state === "on" ? "visible" : "hidden"}'
+
+        # Animated water lines (show and animate when P1 is running)
+        - entity: sensor.esp_rotex_solaris_rps3_umwalzpumpe
+          elements:
+            - cell-wasser_hoch
+            - cell-wasser_runter
+          state_action:
+            - service: floorplan.class_set
+              service_data:
+                class: '${parseInt(entity.state) > 0 ? "flow-animation visible" : "hidden"}'
+    full_height: true

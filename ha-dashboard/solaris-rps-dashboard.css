@@ -1,0 +1,40 @@
+/* Color classes */
+.txt-blue { fill: #3CBCF3 }
+.txt-green { fill: #80FF00 }
+.txt-yellow { fill: #FFD966 }
+.txt-red { fill: #FF6666 }
+
+/* Size classes */
+.txt-medium { font-size: 24px }
+.txt-large { font-size: 32px }
+
+/* Weight classes */
+.txt-bold { font-weight: bold }
+.txt-normal { font-weight: normal }
+
+/* Visibility */
+.hidden { display: none !important;}
+.visible { display: block !important; }
+
+/* Non-clickable class */
+.non-clickable {
+  pointer-events: none !important;
+  cursor: default !important;
+}
+
+/* Add vertical spacing while keeping scaling */
+:host {
+  padding: 35px 0 !important;
+  background-color: #111111 !important;
+}
+
+/* Animated flow for pipes */
+@keyframes flow {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 20; }
+}
+
+.flow-animation {
+  stroke-dasharray: 5, 5;
+  animation: flow 1s linear infinite;
+}
