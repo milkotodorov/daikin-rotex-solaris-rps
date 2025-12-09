@@ -72,7 +72,7 @@ And here once in the RPS housing:
 The DAIKIN/ROTEX Solaris RPS3/4 data will be sent to HA via local network. There are two options how HA can connect to the ESP32 controller:
 
 - Via HTTP API calls
-- MQTT broker like [Mosquitto MQTT](https://mosquitto.org/). You will need to configure HA as described in the [official HA documenatation](https://www.home-assistant.io/integrations/mqtt/). You will need also to adapt the ESPHome configuration [solaris.yaml](esphome/solaris.yaml) to setup the [MQTT client](https://esphome.io/components/mqtt).
+- MQTT broker like [Mosquitto MQTT](https://mosquitto.org/). You will need to configure HA as described in the [official HA documenatation](https://www.home-assistant.io/integrations/mqtt/). You will need also to adapt the ESPHome configuration [solaris-template.yaml](esphome/solaris-template.yaml) to setup the [MQTT client](https://esphome.io/components/mqtt).
 
 The DAIKIN/ROTEX Solaris RPS3/4 sends every configurated period of time (`cycle /s`) the complete data sepatared with semicolons. The sensors are defined inside the YAML file and the parsing logic as well there with the help of the lambdas.
 
@@ -122,7 +122,7 @@ F/W         |  Minimum Flow V1 not reached during startup after 'Time P2' elapse
 
 ### Preparing the ESPHome YAML Configuration
 
-The [solaris.yaml](esphome/solaris.yaml) need to be adapted to match your hardware setup:
+The [solaris-template.yaml](esphome/solaris-template.yaml) need to be adapted to match your hardware setup:
 
   - Adjust ESP32 device hostname and display name
       ```yaml
