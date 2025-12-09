@@ -2,3 +2,4 @@
 /secrets.yaml
 __pycache__/
 solaris_error_codes.h
+solaris.yaml
