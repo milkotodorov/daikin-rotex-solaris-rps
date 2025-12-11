@@ -95,14 +95,14 @@ Metrik | Beschreibung                       | Referenz  | Typ
 ------ | ---------------------------------- | --------- | ------
 HA     | Manueller Betrieb                  | 1         | bool
 BK     | Brennerkontakt                     | 2         | bool
-P1     | Umwälzpumpendrehzahl               | 3         | int
-P2     | Boosterpumpe aktiviert             | 4         | bool
+P1     | Umwälzpumpe (%)                    | 3         | int
+P2     | Boosterpumpe                       | 4         | bool
 TK     | Kollektortemperatur (°C)           | 5         | int
 TR     | Rücklauftemperatur (°C)            | 6         | int
 TS     | Speichertemperatur (°C)            | 7         | int
 TV     | Vorlauftemperatur (°C)             | 8         | int
 V      | Durchflussrate (l/min)             | 9         | float
-Err    | Fehlerstatus (‚‘/K/R/S/V/D/G/F/W)  | 10        | string
+Err    | Fehlerstatus ('‘/K/R/S/V/D/G/F/W)  | 10        | string
 P      | Leistung (Watt)                    | 11        | int
 
 Fehlerstatus:
