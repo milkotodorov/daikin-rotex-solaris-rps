@@ -47,7 +47,7 @@ wifi:
   password: !secret wifi_password
   fast_connect: true  # Faster reconnection
   power_save_mode: none  # Prevent sleep mode issues
-  domain: .local.iot # Change to your domain or remove if none defined
+  domain: .iot.home.arpa # Change to your domain or remove if none defined
   use_address: xxx.xxx.xxx.xxx # Static IP if no DNS available
 
   # Enable fallback hotspot
