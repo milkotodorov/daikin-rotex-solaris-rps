@@ -146,7 +146,7 @@ The [solaris-template.yaml](esphome/solaris-template.yaml) need to be adapted to
       ```yaml
       wifi:
         ...
-        domain: .home.arpa # Change to your domain or remove if none defined
+        domain: .iot.home.arpa # Change to your domain or remove if none defined
         use_address: xxx.xxx.xxx.xxx # Static IP if no DNS available
         ...
       ```
