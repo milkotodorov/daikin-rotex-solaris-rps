@@ -49,8 +49,9 @@ void DaikinRotexSolarisComponent::loop() {
   // If we have partial data and haven't received anything for LINE_TIMEOUT_MS
   // discard the incomplete line to allow recovery from transmission errors
   if (buffer_idx_ > 0 && (now - last_char_time_ > LINE_TIMEOUT_MS)) {
-    ESP_LOGW(TAG, "Line timeout(%us), clearing buffer (%u chars)", 
-      LINE_TIMEOUT_MS / 1000, buffer_idx_);
+    buffer_[buffer_idx_] = '\0';  // Null-terminate for logging
+    ESP_LOGW(TAG, "Line timeout(%us), clearing buffer (%u chars) with content: '%s'", 
+      LINE_TIMEOUT_MS / 1000, buffer_idx_, buffer_);
     buffer_idx_ = 0;
     last_char_time_ = now;
   }
