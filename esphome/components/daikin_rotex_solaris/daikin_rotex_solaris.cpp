@@ -148,6 +148,19 @@ void DaikinRotexSolarisComponent::parse_line_(const char *line, size_t len) {
   }
 
   // ========================================================================
+  // VALIDATE FIELD COUNT - Ensure all fieldswere received
+  // ========================================================================
+  uint8_t token_count = 0;
+  for (size_t i = 0; i <= len; i++) {
+    if (i == len || line[i] == ';') 
+      token_count++;
+  }
+  if (token_count != TOTAL_FIELDS) {
+    ESP_LOGE(TAG, "Wrong token count: %u, expected %u", token_count, TOTAL_FIELDS);
+    return;
+  }  
+
+  // ========================================================================
   // INITIALIZE PARSING STATE - Prepare for tokenization
   // ========================================================================
   // Parse: "Ha;BK;P1;P2;TK;TR;TS;TV;DF;Err;P"
@@ -241,14 +254,6 @@ void DaikinRotexSolarisComponent::parse_line_(const char *line, size_t len) {
       token_start = &line[i + 1];  // Move start pointer past delimiter
       token_idx++;                 // Increment field counter
     }
-  }
-
-  // ========================================================================
-  // VALIDATE FIELD COUNT - Ensure all 11 fields were received
-  // ========================================================================
-  if (token_idx != 11) {
-    ESP_LOGE(TAG, "Incomplete data: only %u tokens found, expected 11", token_idx);
-    return;
   }
 
   // ========================================================================
