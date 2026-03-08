@@ -165,14 +165,13 @@ daikin_rotex_solaris:
   solaris_df:
     id: solaris_df
     filters:
-      - delta: 0.2
       - throttle: 10s
     web_server:
       sorting_weight: 5
 
   # Error state sensor:
   #   ' ': no error
-  #   'K': Kollektortemperatu,
+  #   'K': Kollektortemperatur
   #   'R': Rücklauftemperatur
   #   'S': Speichertemperatur
   #   'D': Durchfluss
