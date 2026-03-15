@@ -48,11 +48,22 @@ void DaikinRotexSolarisComponent::loop() {
   // ========================================================================
   // If we have partial data and haven't received anything for LINE_TIMEOUT_MS
   // discard the incomplete line to allow recovery from transmission errors
-  if (buffer_idx_ > 0 && (now - last_char_time_ > LINE_TIMEOUT_MS)) {
+  if (buffer_idx_ > 0 && last_char_time_ > 0 && (now - last_char_time_ > LINE_TIMEOUT_MS)) {
     buffer_[buffer_idx_] = '\0';  // Null-terminate for logging
     ESP_LOGW(TAG, "Line timeout(%us), clearing buffer (%u chars) with content: '%s'", 
       LINE_TIMEOUT_MS / 1000, buffer_idx_, buffer_);
     buffer_idx_ = 0;
+    last_char_time_ = now;
+  }
+
+  // ========================================================================
+  // DATA SILENCE DETECTION - Reset sensors when RPS stops transmitting
+  // ========================================================================
+  if (last_char_time_ > 0 && (now - last_char_time_ > OFFLINE_TIMEOUT_MS)) {
+    ESP_LOGW(TAG, "No data for %us, Solaris RPS is offline/unavailable — "
+      "invalidates all sensors states and sets them to N/A",
+      OFFLINE_TIMEOUT_MS / 1000);
+    invalidate_all_sensors_();
     last_char_time_ = now;
   }
 
@@ -264,6 +275,23 @@ void DaikinRotexSolarisComponent::parse_line_(const char *line, size_t len) {
   #if ESPHOME_LOG_LEVEL >= ESPHOME_LOG_LEVEL_DEBUG
   ESP_LOGD(TAG, "Parse complete: %u tokens processed successfully", token_idx);
   #endif
+}
+
+void DaikinRotexSolarisComponent::invalidate_all_sensors_() {
+  if (solaris_ha_sensor_)  solaris_ha_sensor_->invalidate_state();
+  if (solaris_bk_sensor_)  solaris_bk_sensor_->invalidate_state();
+  if (solaris_p2_sensor_)  solaris_p2_sensor_->invalidate_state();
+  if (solaris_p1_sensor_)  solaris_p1_sensor_->publish_state(NAN);
+  if (solaris_tk_sensor_)  solaris_tk_sensor_->publish_state(NAN);
+  if (solaris_tr_sensor_)  solaris_tr_sensor_->publish_state(NAN);
+  if (solaris_ts_sensor_)  solaris_ts_sensor_->publish_state(NAN);
+  if (solaris_tv_sensor_)  solaris_tv_sensor_->publish_state(NAN);
+  if (solaris_df_sensor_)  solaris_df_sensor_->publish_state(NAN);
+  if (solaris_pwr_sensor_) solaris_pwr_sensor_->publish_state(NAN);
+  if (solaris_err_sensor_) {
+    solaris_err_sensor_->set_has_state(false);
+    solaris_err_sensor_->publish_state("unknown");
+  }
 }
 
 void DaikinRotexSolarisComponent::publish_values_(const int int_values[], 

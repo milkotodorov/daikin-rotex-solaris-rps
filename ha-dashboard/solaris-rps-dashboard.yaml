@@ -25,11 +25,11 @@ cards:
           state_action:
             - service: floorplan.text_set
               service_data:
-                text: ${parseInt(entity.state)}%
+                text: '${entity.state === "unknown" || entity.state === "unavailable" ? "N/A" : parseInt(entity.state) + "%"}'
             - service: floorplan.class_set
               service_data:
-                class: txt-green txt-medium txt-bold
-        
+                class: '${entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : "txt-green txt-medium txt-bold"}'
+
         # RPS4 only - Booster pump hidden (not available on RPS4).
         # Comment out P2 section below as well.
         # - elements:
@@ -59,10 +59,10 @@ cards:
           state_action:
             - service: floorplan.text_set
               service_data:
-                text: '${entity.state === "on" ? "ein" : "aus"}'
+                text: '${entity.state === "unknown" || entity.state === "unavailable" ? "N/A" : entity.state === "on" ? "ein" : "aus"}'
             - service: floorplan.class_set
               service_data:
-                class: txt-green txt-medium txt-bold
+                class: '${entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : "txt-green txt-medium txt-bold"}'
         
         # PWR - Power (Leistung)
         - element: pwr_txt
@@ -79,11 +79,11 @@ cards:
           state_action:
             - service: floorplan.text_set
               service_data:
-                text: ${parseFloat(entity.state).toFixed(2)} kW
+                text: '${entity.state === "unknown" || entity.state === "unavailable" ? "N/A" : parseFloat(entity.state).toFixed(2) + " kW"}'
             - service: floorplan.class_set
               service_data:
-                class: txt-yellow txt-medium txt-bold
-        
+                class: '${entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : "txt-yellow txt-medium txt-bold"}'
+
         # TK - Collector temperature (Kollektortemperatur)
         - element: tk_txt
           state_action:
@@ -99,11 +99,11 @@ cards:
           state_action:
             - service: floorplan.text_set
               service_data:
-                text: ${parseInt(entity.state)} °C
+                text: '${entity.state === "unknown" || entity.state === "unavailable" ? "N/A" : parseInt(entity.state) + " °C"}'
             - service: floorplan.class_set
               service_data:
-                class: txt-red txt-medium txt-bold
-        
+                class: '${entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : "txt-red txt-medium txt-bold"}'
+
         # DF - Flow rate (Durchfluss)
         - element: df_txt
           state_action:
@@ -113,17 +113,17 @@ cards:
             - service: floorplan.class_set
               service_data:
                 class: txt-blue txt-large txt-bold non-clickable
-        
+
         - entity: sensor.esp_rotex_solaris_rps3_durchfluss
           element: df_val
           state_action:
             - service: floorplan.text_set
               service_data:
-                text: ${parseFloat(entity.state).toFixed(1)} l/min
+                text: '${entity.state === "unknown" || entity.state === "unavailable" ? "N/A" : parseFloat(entity.state).toFixed(1) + " l/min"}'
             - service: floorplan.class_set
               service_data:
-                class: txt-blue txt-medium txt-bold
-        
+                class: '${entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : "txt-blue txt-medium txt-bold"}'
+
         # TV - Flow temperature (Vorlauftemperatur)
         - element: tv_txt
           state_action:
@@ -133,17 +133,17 @@ cards:
             - service: floorplan.class_set
               service_data:
                 class: txt-blue txt-large txt-bold non-clickable
-        
+
         - entity: sensor.esp_rotex_solaris_rps3_vorlauftemperatur
           element: tv_val
           state_action:
             - service: floorplan.text_set
               service_data:
-                text: ${parseInt(entity.state)} °C
+                text: '${entity.state === "unknown" || entity.state === "unavailable" ? "N/A" : parseInt(entity.state) + " °C"}'
             - service: floorplan.class_set
               service_data:
-                class: txt-blue txt-medium txt-bold
-        
+                class: '${entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : "txt-blue txt-medium txt-bold"}'
+
         # TS - Storage temperature (Speichertemperatur)
         - element: ts_txt
           state_action:
@@ -153,17 +153,17 @@ cards:
             - service: floorplan.class_set
               service_data:
                 class: txt-blue txt-large txt-bold non-clickable
-        
+
         - entity: sensor.esp_rotex_solaris_rps3_speichertemperatur
           element: ts_val
           state_action:
             - service: floorplan.text_set
               service_data:
-                text: ${parseInt(entity.state)} °C
+                text: '${entity.state === "unknown" || entity.state === "unavailable" ? "N/A" : parseInt(entity.state) + " °C"}'
             - service: floorplan.class_set
               service_data:
-                class: txt-blue txt-medium txt-bold
-        
+                class: '${entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : "txt-blue txt-medium txt-bold"}'
+
         # TR - Return temperature (Rücklauftemperatur)
         - element: tr_txt
           state_action:
@@ -173,16 +173,16 @@ cards:
             - service: floorplan.class_set
               service_data:
                 class: txt-blue txt-large txt-bold non-clickable
-        
+
         - entity: sensor.esp_rotex_solaris_rps3_rucklauftemperatur
           element: tr_val
           state_action:
             - service: floorplan.text_set
               service_data:
-                text: ${parseInt(entity.state)} °C
+                text: '${entity.state === "unknown" || entity.state === "unavailable" ? "N/A" : parseInt(entity.state) + " °C"}'
             - service: floorplan.class_set
               service_data:
-                class: txt-blue txt-medium txt-bold
+                class: '${entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : "txt-blue txt-medium txt-bold"}'
         
         # BR - Burner contact (Brennerkontakt) text & rectangle box (conditional)
         - entity: binary_sensor.esp_rotex_solaris_rps3_brennerkontakt

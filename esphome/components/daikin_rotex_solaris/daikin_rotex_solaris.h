@@ -14,10 +14,11 @@ static const char *const TAG = "daikin_rotex_solaris"; // Used for logging
 // ============================================================================
 // UART BUFFER CONFIGURATION
 // ============================================================================
-static constexpr uint8_t BUFFER_SIZE = 128;          // Maximum chars stored per line (RX buffer)
-static constexpr uint8_t MIN_LINE_LEN = 22;          // Minimum valid line length (reject shorter lines)
-static constexpr uint8_t MAX_LINE_LEN = 48;          // Maximum valid line length (reject longer lines)
-static constexpr uint32_t LINE_TIMEOUT_MS = 5000;    // Clear buffer if no newline received within 5s
+static constexpr uint8_t BUFFER_SIZE = 128;            // Maximum chars stored per line (RX buffer)
+static constexpr uint8_t MIN_LINE_LEN = 22;            // Minimum valid line length (reject shorter lines)
+static constexpr uint8_t MAX_LINE_LEN = 48;            // Maximum valid line length (reject longer lines)
+static constexpr uint32_t LINE_TIMEOUT_MS = 5000;      // Used for clearing buffer
+static constexpr uint32_t OFFLINE_TIMEOUT_MS = 90000;  // Used for detecting Solaris RPS offline/unavailable state (90s of no data)
 
 // Boot/Info lines sent by Solaris RPS on startup - the first words for each line
 static constexpr char BOOT_LINE1[] = "SOLARIS";
@@ -89,6 +90,10 @@ class DaikinRotexSolarisComponent : public Component, public uart::UARTDevice {
     // ========================================================================
     // Parses a complete UART line into individual fields and validates data
     void parse_line_(const char *line, size_t len);
+
+    // Invalidates all sensors states and sets them to N/A
+    // Called when RPS is likely offline/unavailable - after OFFLINE_TIMEOUT_MS time of no data received
+    void invalidate_all_sensors_();
 
     // Publishes parsed values to all registered sensor entities
     void publish_values_(const int int_values[], float solaris_df, char error_code, uint8_t num_tokens);

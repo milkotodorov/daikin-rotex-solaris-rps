@@ -3,6 +3,7 @@
 .txt-green { fill: #80FF00 }
 .txt-yellow { fill: #FFD966 }
 .txt-red { fill: #FF6666 }
+.txt-grey { fill: #888888; }
 
 /* Size classes */
 .txt-medium { font-size: 24px }
