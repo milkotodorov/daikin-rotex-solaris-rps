@@ -96,7 +96,7 @@ class DaikinRotexSolarisComponent : public Component, public uart::UARTDevice {
     void invalidate_all_sensors_();
 
     // Publishes parsed values to all registered sensor entities
-    void publish_values_(const int int_values[], float solaris_df, char error_code, uint8_t num_tokens);
+    void publish_values_(const int int_values[], float solaris_df, char error_code);
 
     // Gets error code description from error code character
     const char *get_error_text_(char error_code);

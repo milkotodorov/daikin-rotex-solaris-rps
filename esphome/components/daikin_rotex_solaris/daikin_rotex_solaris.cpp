@@ -270,7 +270,7 @@ void DaikinRotexSolarisComponent::parse_line_(const char *line, size_t len) {
   // ========================================================================
   // PUBLISH PARSED DATA FOR ALL SENSORS
   // ========================================================================
-  publish_values_(int_values, solaris_df, error_code, token_idx);
+  publish_values_(int_values, solaris_df, error_code);
 
   #if ESPHOME_LOG_LEVEL >= ESPHOME_LOG_LEVEL_DEBUG
   ESP_LOGD(TAG, "Parse complete: %u tokens processed successfully", token_idx);
@@ -294,8 +294,8 @@ void DaikinRotexSolarisComponent::invalidate_all_sensors_() {
   }
 }
 
-void DaikinRotexSolarisComponent::publish_values_(const int int_values[], 
-  float solaris_df, char error_code, uint8_t num_tokens) {
+void DaikinRotexSolarisComponent::publish_values_(const int int_values[],
+  float solaris_df, char error_code) {
   // ========================================================================
   // PUBLISH BINARY SENSORS - on/off states (true/false)
   // ========================================================================
