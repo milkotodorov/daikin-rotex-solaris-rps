@@ -147,12 +147,20 @@ SENSORS_CONFIG = [
     # =============
     # Text Sensors
     # =============
-    # Error status (single character code)
+    # Error code (raw single character: '', K, R, S, D, V, G, F, W)
     {
         'type': 'text',
-        'key': 'solaris_err',
-        'display_name': lambda lang: get_sensor_name('solaris_err', lang),
-        'setter': 'set_solaris_err_sensor',
+        'key': 'solaris_errcode',
+        'display_name': lambda lang: get_sensor_name('solaris_errcode', lang),
+        'setter': 'set_solaris_errcode_sensor',
+        'icon': 'mdi:alert-circle-outline',
+    },
+    # Error description (localized full text for the error code)
+    {
+        'type': 'text',
+        'key': 'solaris_errdesc',
+        'display_name': lambda lang: get_sensor_name('solaris_errdesc', lang),
+        'setter': 'set_solaris_errdesc_sensor',
         'icon': 'mdi:alert-decagram-outline',
     },
 ]

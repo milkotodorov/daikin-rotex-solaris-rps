@@ -8,9 +8,11 @@ language in the YAML configuration
 3. Registers the component and sets up all sensors entities
 """
 
+import subprocess
+
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart
+from esphome.components import text_sensor, uart
 from esphome.const import CONF_ID
 from pathlib import Path
 
@@ -19,6 +21,18 @@ from .translations.translations import DEFAULT_LANGUAGE, get_codes_description
 
 # Configuration key in YAML for language selection
 CONF_LANGUAGE = "language"
+CONF_GIT_HASH = "git_hash"
+
+def _get_git_hash():
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            text=True, cwd=Path(__file__).parent, timeout=30
+        )
+        return r.stdout.strip() or "unknown"
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return "unknown"
 
 # ============================================================================
 # COMPONENT METADATA
@@ -49,6 +63,11 @@ CONFIG_SCHEMA = (
         cv.GenerateID(): cv.declare_id(DaikinRotexSolarisComponent),
         # Language selection for sensor names and error messages (default: DEFAULT_LANGUAGE)
         cv.Optional(CONF_LANGUAGE, default=DEFAULT_LANGUAGE): cv.string,
+        # Git hash sensor (source code version)
+        cv.Required(CONF_GIT_HASH): text_sensor.text_sensor_schema(
+            icon="mdi:git",
+            entity_category="diagnostic",
+        ),
     })
     # Include sensors schema
     .extend(SENSORS_SCHEMA)
@@ -180,3 +199,8 @@ async def to_code(config):
 
     # Initialize all sensors
     await setup_sensors(var, config)
+
+    # Wire git hash text sensor
+    git_hash = _get_git_hash()
+    t = await text_sensor.new_text_sensor(config[CONF_GIT_HASH])
+    cg.add(var.set_git_hash_sensor(t, git_hash))

@@ -17,7 +17,16 @@ void DaikinRotexSolarisComponent::dump_config() {
   LOG_BINARY_SENSOR("  ", "solaris_p2", solaris_p2_sensor_);
   LOG_BINARY_SENSOR("  ", "solaris_ha", solaris_ha_sensor_);
   LOG_BINARY_SENSOR("  ", "solaris_bk", solaris_bk_sensor_);
-  LOG_TEXT_SENSOR("  ", "solaris_err", solaris_err_sensor_);
+  LOG_TEXT_SENSOR("  ", "solaris_errcode", solaris_errcode_sensor_);
+  LOG_TEXT_SENSOR("  ", "solaris_errdesc", solaris_errdesc_sensor_);
+  LOG_TEXT_SENSOR("  ", "git_hash", git_hash_sensor_);
+}
+
+void DaikinRotexSolarisComponent::setup() {
+  if (git_hash_sensor_)
+    git_hash_sensor_->publish_state(git_hash_);
+  // Start offline timer from boot so RPS-off-at-startup triggers invalidation after OFFLINE_TIMEOUT_MS
+  last_char_time_ = millis();
 }
 
 void DaikinRotexSolarisComponent::loop() {
@@ -50,8 +59,8 @@ void DaikinRotexSolarisComponent::loop() {
   // discard the incomplete line to allow recovery from transmission errors
   if (buffer_idx_ > 0 && last_char_time_ > 0 && (now - last_char_time_ > LINE_TIMEOUT_MS)) {
     buffer_[buffer_idx_] = '\0';  // Null-terminate for logging
-    ESP_LOGW(TAG, "Line timeout(%us), clearing buffer (%u chars) with content: '%s'", 
-      LINE_TIMEOUT_MS / 1000, buffer_idx_, buffer_);
+    ESP_LOGW(TAG, "Line timeout(%us), clearing buffer (%u chars) with content: '%s'",
+      (unsigned)(LINE_TIMEOUT_MS / 1000), (unsigned)buffer_idx_, buffer_);
     buffer_idx_ = 0;
     last_char_time_ = now;
   }
@@ -62,7 +71,7 @@ void DaikinRotexSolarisComponent::loop() {
   if (last_char_time_ > 0 && (now - last_char_time_ > OFFLINE_TIMEOUT_MS)) {
     ESP_LOGW(TAG, "No data for %us, Solaris RPS is offline/unavailable — "
       "invalidates all sensors states and sets them to N/A",
-      OFFLINE_TIMEOUT_MS / 1000);
+      (unsigned)(OFFLINE_TIMEOUT_MS / 1000));
     invalidate_all_sensors_();
     last_char_time_ = now;
   }
@@ -159,17 +168,20 @@ void DaikinRotexSolarisComponent::parse_line_(const char *line, size_t len) {
   }
 
   // ========================================================================
-  // VALIDATE FIELD COUNT - Ensure all fieldswere received
+  // VALIDATE FIELD COUNT - Ensure all fields were received
   // ========================================================================
   uint8_t token_count = 0;
   for (size_t i = 0; i <= len; i++) {
     if (i == len || line[i] == ';') 
       token_count++;
   }
-  if (token_count != TOTAL_FIELDS) {
-    ESP_LOGE(TAG, "Wrong token count: %u, expected %u", token_count, TOTAL_FIELDS);
+  if (token_count < MIN_FIELDS || token_count > TOTAL_FIELDS) {
+    ESP_LOGE(TAG, "Wrong token count: %u, expected %u-%u", token_count, MIN_FIELDS, TOTAL_FIELDS);
     return;
-  }  
+  }
+  if (token_count > MIN_FIELDS) {
+    ESP_LOGD(TAG, "RPS4 detected: %u fields (extra fields ignored)", token_count);
+  }
 
   // ========================================================================
   // INITIALIZE PARSING STATE - Prepare for tokenization
@@ -240,7 +252,7 @@ void DaikinRotexSolarisComponent::parse_line_(const char *line, size_t len) {
       // PARSE INTEGER FIELDS - All other fields are integers
       // ====================================================================
       } else {
-        if (token_len > 0) {
+        if (token_len > 0 && token_len < CONVERSION_BUFFER_SIZE) {
           // Copy token to buffer and null-terminate
           strncpy(conversion_buffer_, token_start, token_len);
           conversion_buffer_[token_len] = '\0';
@@ -288,10 +300,8 @@ void DaikinRotexSolarisComponent::invalidate_all_sensors_() {
   if (solaris_tv_sensor_)  solaris_tv_sensor_->publish_state(NAN);
   if (solaris_df_sensor_)  solaris_df_sensor_->publish_state(NAN);
   if (solaris_pwr_sensor_) solaris_pwr_sensor_->publish_state(NAN);
-  if (solaris_err_sensor_) {
-    solaris_err_sensor_->set_has_state(false);
-    solaris_err_sensor_->publish_state("unknown");
-  }
+  if (solaris_errcode_sensor_) solaris_errcode_sensor_->publish_state("X");
+  if (solaris_errdesc_sensor_) solaris_errdesc_sensor_->publish_state(get_error_text_('X'));
 }
 
 void DaikinRotexSolarisComponent::publish_values_(const int int_values[],
@@ -349,8 +359,9 @@ void DaikinRotexSolarisComponent::publish_values_(const int int_values[],
   // PUBLISH FLOW RATE SENSOR - Already in correct units (l/min)
   // ========================================================================
   if (solaris_df_sensor_) {
-    // Flow rate (DF): 0.0-20.0 l/min
-    solaris_df_sensor_->publish_state(solaris_df);
+    // Suppress pump-start noise: P1=100% but flow not yet established (readings 2.7-2.9 l/min)
+    float df_to_publish = (int_values[SOLARIS_P1] == 100 && solaris_df < 3.0f) ? 0.0f : solaris_df;
+    solaris_df_sensor_->publish_state(df_to_publish);
   }
 
   // ========================================================================
@@ -364,11 +375,16 @@ void DaikinRotexSolarisComponent::publish_values_(const int int_values[],
   }
 
   // ========================================================================
-  // PUBLISH ERROR STATUS SENSOR - Lookup error description if applicable
+  // PUBLISH ERROR SENSORS - raw code (Fehlercode) + localized description (Fehlerbeschreibung)
   // ========================================================================
-  if (solaris_err_sensor_) {
+  if (solaris_errcode_sensor_) {
+    // Publish raw letter ('K', 'R', ...) or empty string when no error
+    char buf[2] = {error_code, '\0'};
+    solaris_errcode_sensor_->publish_state(error_code ? buf : "");
+  }
+  if (solaris_errdesc_sensor_) {
     const char *error_text = get_error_text_(error_code);
-    solaris_err_sensor_->publish_state(error_text);
+    solaris_errdesc_sensor_->publish_state(error_text);
   }
 }
 

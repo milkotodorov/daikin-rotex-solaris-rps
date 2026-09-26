@@ -35,11 +35,13 @@ static constexpr uint16_t ERROR_MSG_BUFFER_SIZE = 256;    // Error message buffe
 // ============================================================================
 // DATA STRUCTURE - Solaris RPS protocol
 // ============================================================================
-// Total number of semicolon-delimited fields in one complete data line
-static constexpr uint8_t TOTAL_FIELDS = 11;
+// Field count bounds for one complete data line
+// RPS3 sends 11 fields; RPS4 sends up to 13 (fields 11=FLS type, 12=unknown)
+static constexpr uint8_t MIN_FIELDS = 11;
+static constexpr uint8_t TOTAL_FIELDS = 13;
 
 // Enum for field indices in the parsed data array
-// Protocol format: "Ha;BK;P1;P2;TK;TR;TS;TV;DF;ERR;PWR"
+// Protocol format: "Ha;BK;P1;P2;TK;TR;TS;TV;DF;ERR;PWR[;FLS;?]"
 enum SolarisFields : uint8_t {
   SOLARIS_HA = 0,   // Handbetrieb (Manual Operation flag, 0/1)
   SOLARIS_BK = 1,   // Brennerkontakt (Burner Contact flag, 0/1)
@@ -50,7 +52,7 @@ enum SolarisFields : uint8_t {
   SOLARIS_TS = 6,   // Speichertemperatur (Storage Temperature, °C)
   SOLARIS_TV = 7,   // Vorlauftemperatur (Flow Temperature, °C)
   SOLARIS_DF = 8,   // Durchfluss (Flow Rate, l/min, uses comma as decimal separator)
-  SOLARIS_ERR = 9,  // Fehlerstatus (Error code, single character: '', K, R, S, D, V, G, F, W)
+  SOLARIS_ERR = 9,  // Error code (single character: '', K, R, S, D, V, G, F, W) → published as Fehlercode (raw) + Fehlerbeschreibung (translated)
   SOLARIS_PWR = 10  // Leistung (Power output, Watts)
 };
 
@@ -59,7 +61,7 @@ enum SolarisFields : uint8_t {
 // ============================================================================
 class DaikinRotexSolarisComponent : public Component, public uart::UARTDevice {
   public:
-    void setup() override {}
+    void setup() override;
     void loop() override;           // Main processing loop (called every cycle)
     void dump_config() override;    // Log configuration at startup
     float get_setup_priority() const override { return setup_priority::DATA; }
@@ -81,8 +83,15 @@ class DaikinRotexSolarisComponent : public Component, public uart::UARTDevice {
     void set_solaris_bk_sensor(binary_sensor::BinarySensor *s) { solaris_bk_sensor_ = s; }
     void set_solaris_p2_sensor(binary_sensor::BinarySensor *s) { solaris_p2_sensor_ = s; }
 
-    // Text sensor (error status messages)
-    void set_solaris_err_sensor(text_sensor::TextSensor *s) { solaris_err_sensor_ = s; }
+    // Text sensors (error code + error description)
+    void set_solaris_errcode_sensor(text_sensor::TextSensor *s) { solaris_errcode_sensor_ = s; }
+    void set_solaris_errdesc_sensor(text_sensor::TextSensor *s) { solaris_errdesc_sensor_ = s; }
+
+    // Git hash sensor (source code version)
+    void set_git_hash_sensor(text_sensor::TextSensor *s, const std::string &hash) {
+      git_hash_sensor_ = s;
+      git_hash_ = hash;
+    }
 
   protected:
     // ========================================================================
@@ -118,8 +127,13 @@ class DaikinRotexSolarisComponent : public Component, public uart::UARTDevice {
     binary_sensor::BinarySensor *solaris_bk_sensor_{nullptr};
     binary_sensor::BinarySensor *solaris_p2_sensor_{nullptr};
 
-    // Text sensor (error status)
-    text_sensor::TextSensor *solaris_err_sensor_{nullptr};
+    // Text sensors (error code = raw letter; error description = localized text)
+    text_sensor::TextSensor *solaris_errcode_sensor_{nullptr};
+    text_sensor::TextSensor *solaris_errdesc_sensor_{nullptr};
+
+    // Git hash sensor
+    text_sensor::TextSensor *git_hash_sensor_{nullptr};
+    std::string git_hash_;
 
     // ========================================================================
     // UART BUFFER STATE - Tracks incoming character stream

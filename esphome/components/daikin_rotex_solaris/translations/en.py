@@ -9,7 +9,8 @@ SENSOR_NAMES_EN ={
     "solaris_ha": "Manual Operation",
     "solaris_bk": "Burner Contact",
     "solaris_p2": "Booster Pump",
-    "solaris_err": "Error Status",
+    "solaris_errcode": "Error Code",
+    "solaris_errdesc": "Error Description",
 }
 
 ERROR_CODES_EN ={
@@ -20,7 +21,8 @@ ERROR_CODES_EN ={
     "D": "Flow Rate Sensor",
     "V": "Flow Temperature Sensor",
     "G": "A/D Converter Error / Supply Voltage Error / Reference Voltage Error",
-    "F": "Minimum Flow V1 not reached during startup after 'Time P2' elapsed",
-    "W": "Minimum Flow V1 not reached during startup after 'Time P2' elapsed",
+    "F": "Minimum Flow V1 not reached during startup after 'Time P2' elapsed — pumps switched off permanently",
+    "W": "Minimum Flow V1 not reached during startup after 'Time P2' elapsed — pumps inhibited for 2 hours, will retry",
+    "X": "ROTEX Solaris RPS Offline / Unreachable",
     "unknown": "Unknown Error",
 }

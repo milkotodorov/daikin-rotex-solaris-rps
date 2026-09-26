@@ -9,7 +9,8 @@ SENSOR_NAMES_FR ={
     "solaris_ha": "Fonctionnement manuel",
     "solaris_bk": "Contact brûleur",
     "solaris_p2": "Pompe de suralimentation",
-    "solaris_err": "État d'erreur",
+    "solaris_errcode": "Code d'erreur",
+    "solaris_errdesc": "Description d'erreur",
 }
 
 ERROR_CODES_FR ={
@@ -20,7 +21,8 @@ ERROR_CODES_FR ={
     "D": "Capteur de débit",
     "V": "Capteur de température de départ",
     "G": "Erreur du convertisseur A/D / Erreur de tension d'alimentation / Erreur de tension de référence",
-    "F": "Débit minimum V1 non atteint au démarrage après l'expiration du 'Temps P2'",
-    "W": "Débit minimum V1 non atteint au démarrage après l'expiration du 'Temps P2'",
+    "F": "Débit minimum V1 non atteint au démarrage après l'expiration du 'Temps P2' — pompes arrêtées définitivement",
+    "W": "Débit minimum V1 non atteint au démarrage après l'expiration du 'Temps P2' — pompes bloquées 2 heures, redémarrage automatique",
+    "X": "ROTEX Solaris RPS Hors ligne / Inaccessible",
     "unknown": "Erreur inconnue",
 }

@@ -4,6 +4,8 @@
 .txt-yellow { fill: #FFD966 }
 .txt-red { fill: #FF6666 }
 .txt-grey { fill: #888888; }
+.txt-orange { fill: #FF8000 }
+.txt-error-red { fill: #CC0000 }
 
 /* Size classes */
 .txt-medium { font-size: 24px }
@@ -38,4 +40,14 @@
 .flow-animation {
   stroke-dasharray: 5, 5;
   animation: flow 1s linear infinite;
+}
+
+/* Blinking error indicator */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.blink {
+  animation: blink 1.5s ease-in-out infinite;
 }

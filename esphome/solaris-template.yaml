@@ -31,13 +31,12 @@ logger:
 # Enable API Communication
 api:
   encryption:
-    key: !secret solaris_api_encryption_key
+    key: !secret solaris_encryption_key
   reboot_timeout: 0s  # Default 15min
 
 # Enable OTA Updates
 ota:
   - platform: esphome
-    password: !secret solaris_ota_password
 
 # ============================================================================
 # WIFI & CONNECTIVITY
@@ -71,6 +70,7 @@ web_server:
   local: true  # Serves assets locally, no internet required
   include_internal: true
   auth:
+    type: digest
     username: !secret solaris_web_server_username
     password: !secret solaris_web_server_password
 
@@ -169,8 +169,13 @@ daikin_rotex_solaris:
     web_server:
       sorting_weight: 5
 
-  # Error state sensor:
-  #   ' ': no error
+  # Error code sensor (raw single-character code: '', K, R, S, D, V, G, F, W)
+  solaris_errcode:
+    id: solaris_errcode
+    web_server:
+      sorting_weight: 11
+
+  # Error description sensor (localized full text for the error code)
   #   'K': Kollektortemperatur
   #   'R': Rücklauftemperatur
   #   'S': Speichertemperatur
@@ -178,10 +183,10 @@ daikin_rotex_solaris:
   #   'V': Vorlauftemperatur
   #   'G': A/D-Wandler-Fehler / Versorgungsspannungsfehler / Referenzspannungsfehler
   #   'F/W': Minimaldurchfluss V1 wurde in der Startphase nach Ablauf der \"Zeit P2\" nicht erreicht
-  solaris_err:
-    id: solaris_err
+  solaris_errdesc:
+    id: solaris_errdesc
     web_server:
-      sorting_weight: 11
+      sorting_weight: 12
 
   # Leistung (Power) kW
   solaris_pwr:
@@ -190,6 +195,13 @@ daikin_rotex_solaris:
       - throttle: 10s
     web_server:
       sorting_weight: 6
+
+  # Source code git hash (component version)
+  git_hash:
+    id: solaris_git_hash
+    name: "Git Hash"
+    web_server:
+      sorting_weight: 71
 
 # ============================================================================
 # DEBUGGING & MONITORING

@@ -9,7 +9,8 @@ SENSOR_NAMES_DE = {
     "solaris_ha": "Handbetrieb",
     "solaris_bk": "Brennerkontakt",
     "solaris_p2": "Boosterpumpe",
-    "solaris_err": "Fehlerstatus",
+    "solaris_errcode": "Fehlercode",
+    "solaris_errdesc": "Fehlerbeschreibung",
 }
 
 ERROR_CODES_DE = {
@@ -20,7 +21,8 @@ ERROR_CODES_DE = {
     "D": "Durchflusssensor",
     "V": "Vorlauftemperatursensor",
     "G": "A/D-Wandler-Fehler / Versorgungsspannungsfehler / Referenzspannungsfehler",
-    "F": "Minimaldurchfluss V1 wurde in der Startphase nach Ablauf der \"Zeit P2\" nicht erreicht",
-    "W": "Minimaldurchfluss V1 wurde in der Startphase nach Ablauf der \"Zeit P2\" nicht erreicht",
+    "F": "Minimaldurchfluss V1 wurde in der Startphase nach Ablauf der \"Zeit P2\" nicht erreicht — Pumpen dauerhaft abgeschaltet",
+    "W": "Minimaldurchfluss V1 wurde in der Startphase nach Ablauf der \"Zeit P2\" nicht erreicht — Pumpen für 2 Stunden gesperrt, automatischer Neustart",
+    "X": "ROTEX Solaris RPS Offline / Nicht erreichbar",
     "unknown": "Unbekannter Fehler",
 }

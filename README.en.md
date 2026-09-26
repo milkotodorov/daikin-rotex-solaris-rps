@@ -3,10 +3,10 @@
  
 # DAIKIN/ROTEX Solaris RPS3/4 Monitoring
 
-This project makes it possible to monitor DAIKIN/ROTEX Solaris RSP3/4 in Home Assistant (HA) using an ESP32 development board running ESPHome firmware. Any other home automation software with API or MQTT support can be used as well though you need to build the dashboards and the configuration there yourself. Here only HA integration and dashboard is documented.
+This project makes it possible to monitor DAIKIN/ROTEX Solaris RPS3/4 in Home Assistant (HA) using an ESP32 development board running ESPHome firmware. Any other home automation software with API or MQTT support can be used as well though you need to build the dashboards and the configuration there yourself. Here only HA integration and dashboard is documented.
 
 <p align="center">
-  <img src="img/ha-dashboard.gif" width="480" />
+  <img src="img/ha-dashboard.svg" width="480" />
   <img src="img/solaris-esphome-webui.png" width="480" />
 </p>
 
@@ -29,25 +29,25 @@ This project makes it possible to monitor DAIKIN/ROTEX Solaris RSP3/4 in Home As
 # Hardware Setup & Installation
 
 ## USB Power Adapter
-It is better to use euro-socket extension and short USB cable instead of vice versa as if the USB cable is too long this will cause voltage drop and will lead to instability of the ESP32. In the box of the DAIKIN/ROTEX Solaris RSP3/4 there is enough space to put the eurosocket and the USB power adapter.
+It is better to use euro-socket extension and short USB cable instead of vice versa as if the USB cable is too long this will cause voltage drop and will lead to instability of the ESP32. In the box of the DAIKIN/ROTEX Solaris RPS3/4 there is enough space to put the eurosocket and the USB power adapter.
 
-## DAIKIN/ROTEX Solaris RSP3/4 Serial Port Connection
-The DAIKIN/ROTEX Solaris RSP3/4 has an 3.5mm stereo jack as serial port and its wires are as follows:
+## DAIKIN/ROTEX Solaris RPS3/4 Serial Port Connection
+The DAIKIN/ROTEX Solaris RPS3/4 has a 3.5mm stereo jack as serial port and its wires are as follows:
 
-| Solaris RSP3/4 <br /> 3.5mm Jack | Connection  | Description   |
+| Solaris RPS3/4 <br /> 3.5mm Jack | Connection  | Description   |
 | -------------------------------- | ----------- | ------------- |
 | Tip                              | Tx          | Left Channel  |
 | Ring                             | Rx          | Right Channel |
 | Sleeve                           | GND         | Ground        |
 
-Here is a picture the location of the serial jack connection on the back of the RSP3/4 control unit:
+Here is a picture of the location of the serial jack connection on the back of the RPS3/4 control unit:
 
 ![](./img/solaris-serial-connection.jpg)
 
 ## 5V to 3.3V Level Shifter
-Here is a sample [ST1167 level shifter](https://www.reichelt.de/de/de/shop/produkt/entwicklerboards_-_ttl_logic_level_converter_3_3v_5v-282702) which could be used. It is the [SparkFun 3.3V to 5V level shifter](https://www.sparkfun.com/sparkfun-logic-level-converter-bi-directional.html). 
+Here is a sample [ST1167 level shifter](https://www.reichelt.de/de/de/shop/produkt/entwicklerboards_-_ttl_logic_level_converter_3_3v_5v-282702) which could be used. It is the [SparkFun 5V to 3.3V level shifter](https://www.sparkfun.com/sparkfun-logic-level-converter-bi-directional.html).
 
-![](img/3v-5v-level-shifter.jpg)
+![](img/5v-3v-level-shifter.jpg)
 
 For more information read the [ST1167 manual](manuals/ST1167_Manual.pdf) or read the documents in the SparkFun website linked above. Of course, any other alternative can be used too.
 
@@ -72,55 +72,64 @@ And here once in the RPS housing:
 The DAIKIN/ROTEX Solaris RPS3/4 data will be sent to HA via local network. There are two options how HA can connect to the ESP32 controller:
 
 - Via HTTP API calls
-- MQTT broker like [Mosquitto MQTT](https://mosquitto.org/). You will need to configure HA as described in the [official HA documenatation](https://www.home-assistant.io/integrations/mqtt/). You will need also to adapt the ESPHome configuration [solaris-template.yaml](esphome/solaris-template.yaml) to setup the [MQTT client](https://esphome.io/components/mqtt).
+- MQTT broker like [Mosquitto MQTT](https://mosquitto.org/). You will need to configure HA as described in the [official HA documentation](https://www.home-assistant.io/integrations/mqtt/). You will need also to adapt the ESPHome configuration [solaris-template.yaml](esphome/solaris-template.yaml) to setup the [MQTT client](https://esphome.io/components/mqtt).
 
-The DAIKIN/ROTEX Solaris RPS3/4 sends every configurated period of time (`cycle /s`) the complete data sepatared with semicolons. The sensors are defined inside the YAML file and the parsing logic as well there with the help of the lambdas.
+The DAIKIN/ROTEX Solaris RPS3/4 sends the complete data separated by semicolons at every configured interval (`cycle /s`). The data is parsed and published to HA by the ESPHome external component.
 
 ![](img/overview.png) 
 
 ## DAIKIN/ROTEX Solaris RPS3/4 configuration
-You must activate the serial communication data output of the RPS3/4 control unit. The default code of technical user `0110`. 
+You must activate the serial communication data output of the RPS3/4 control unit. The default code of the technical user is `0110`. 
 After you are logged as technical user with the code, go to `System` -> `Data output` and configure as follows:
 
-| Solaris RPS3/4 | Description
-| -------------- | -----------
-| Cycle /s       | 5s
-| Record         | AD-232
-| Baudrate       | 9600
-| Address        | 255
+| Solaris RPS3/4 | Description |
+| -------------- | ----------- |
+| Cycle /s       | 5s          |
+| Record         | AD-232      |
+| Baudrate       | 9600        |
+| Address        | 255         |
 
 ### Serial data structure
 
-Metric | Description                        | Reference | Type
------- | ---------------------------------- | --------- | ------
-HA     | Manual Operation                   | 1         | bool
-BK     | Burner Contact                     | 2         | bool
-P1     | Circulation Pump Rate              | 3         | int
-P2     | Booster Pump Enabled               | 4         | bool
-TK     | Collector Temp (°C)                | 5         | int
-TR     | Return Temp (°C)                   | 6         | int
-TS     | Storage Temp (°C)                  | 7         | int
-TV     | Flow Temp (°C)                     | 8         | int
-V      | Flow Rate (l/min)                  | 9         | float
-Err    | Error Status (''/K/R/S/V/D/G/F/W)  | 10        | string
-P      | Power (Watt)                       | 11        | int
+| Metric | Description                        | Reference | Type   |
+| ------ | ---------------------------------- | --------- | ------ |
+| HA     | Manual Operation                   | 1         | bool   |
+| BK     | Burner Contact                     | 2         | bool   |
+| P1     | Circulation Pump Rate              | 3         | int    |
+| P2     | Booster Pump Enabled               | 4         | bool   |
+| TK     | Collector Temp (°C)                | 5         | int    |
+| TR     | Return Temp (°C)                   | 6         | int    |
+| TS     | Storage Temp (°C)                  | 7         | int    |
+| TV     | Flow Temp (°C)                     | 8         | int    |
+| V      | Flow Rate (l/min)                  | 9         | float  |
+| Err    | Error Status (''/K/R/S/V/D/G/F/W)  | 10        | string |
+| P      | Power (Watt)                       | 11        | int    |
 
 Error status:
 
-Error Code  |  Description                |  Sensor/Component Affected    
------------ | --------------------------- | ------------------------------
-empty       |  no error                   |  System operating normally
-K           |  Kollektortemperatursensor  |  Collector temperature sensor 
-R           |  Rücklauftemperatursensor   |  Return temperature sensor    
-S           |  Speichertemperatursensor   |  Storage temperature sensor   
-D           |  Durchflusssensor           |  Flow rate sensor         
-V           |  Vorlauftemperatursensor    |  Flow temperature sensor      
-G           |  A/D Converter Error <br /> Supply Voltage Error <br /> Reference Voltage Error | N/A
-F/W         |  Minimum Flow V1 not reached during startup after 'Time P2' elapsed             | N/A
+| Error Code | Description                                                                                 | Sensor/Component Affected                                            |
+| ---------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| empty      | no error                                                                                    | System operating normally                                            |
+| K          | Kollektortemperatursensor                                                                   | Collector temperature sensor                                         |
+| R          | Rücklauftemperatursensor                                                                    | Return temperature sensor                                            |
+| S          | Speichertemperatursensor                                                                    | Storage temperature sensor                                           |
+| D          | Durchflusssensor                                                                            | Flow rate sensor                                                     |
+| V          | Vorlauftemperatursensor                                                                     | Flow temperature sensor                                              |
+| G          | A/D Converter Error <br /> Supply Voltage Error <br /> Reference Voltage Error              | N/A                                                                  |
+| F/W        | Minimum Flow V1 not reached during startup after 'Time P2' elapsed                          | N/A                                                                  |
 
 ## ESPHome
 
 ### Preparing the ESPHome YAML Configuration
+
+> [!NOTE]
+> [`solaris-template.yaml`](esphome/solaris-template.yaml) and [`secrets-template.yaml`](esphome/secrets-template.yaml) are the committed reference files. Do **not** build them directly — instead copy them to `solaris.yaml` and `secrets.yaml` (both git-ignored local working copies) and adapt those:
+> ```bash
+> cd esphome
+> cp solaris-template.yaml solaris.yaml
+> cp secrets-template.yaml secrets.yaml
+> ```
+> The template pulls the component straight from GitHub via `external_components`. If you are developing the component locally, switch that block to the commented-out local source (`type: local`, `path: components`).
 
 The [solaris-template.yaml](esphome/solaris-template.yaml) need to be adapted to match your hardware setup:
 
@@ -161,24 +170,35 @@ The [solaris-template.yaml](esphome/solaris-template.yaml) need to be adapted to
         parity: NONE # DAIKIN/ROTEX Solaris RPS3/4 uses no parity
       ```
 
-### Maitaining the ESPHome Secrets
+  - Optionally, choose the language for the entity names and error messages. Supported values are `de` (default), `en`, `fr`, `it` and `es`:
 
-Maintain the following Secrets in the [`secrets.yaml`](esphome/secrets-template.yaml) or in the `SECRETS` section if you use ESPHome Add-on:
+      ```yaml
+      daikin_rotex_solaris:
+        ...
+        language: de # de | en | fr | it | es
+      ```
+
+  - **RPS4 only:** the RPS4 has no booster pump. Comment out the `solaris_p2` block in `solaris.yaml` and the corresponding `p2_*` rules in the HA dashboard YAML.
+
+### Maintaining the ESPHome Secrets
+
+Maintain the following secrets in `secrets.yaml` (use [`secrets-template.yaml`](esphome/secrets-template.yaml) as the starting point) or in the `SECRETS` section if you use ESPHome Add-on:
 
   ```yaml
   # ESPHome Secrets
   wifi_ssid: "..."
   wifi_password: "..."
   solaris_ap_fallback_password: "..."
-  solaris_api_encryption_key: "..."
-  solaris_ota_password: "..."
+  solaris_encryption_key: "..."
   solaris_web_server_username: "..."
   solaris_web_server_password: "..."
   ``` 
 
-### Compiling the deploying the ESPHome firmware
+### Compiling and deploying the ESPHome firmware
 
 Compile and deploy the ESPHome firmware from the prepared configuration onto your ESP32 device using your preferred method either by [ESPHome add-on](https://esphome.io/guides/getting_started_hassio), [Web ESPHome](https://web.esphome.io) or [ESPHome CLI](https://esphome.io/guides/getting_started_command_line).
+
+Once the device boots, open `http://<device-ip>` in a browser (credentials from `secrets.yaml`) to verify the device is online and sensors are populating before proceeding to the HA dashboard setup.
 
 ## Home Assistant Dashboard
 

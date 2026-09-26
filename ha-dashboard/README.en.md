@@ -19,7 +19,7 @@ The dashboard consists of:
 
 - Home Assistant running with file access to `/config`.
 - Installed [HACS](https://www.hacs.xyz).
-- Installed [ha-floorplan](https://github.com/ExperienceLovelace/ha-floorplan) (preferebly via HACS). Read the [Adding ha-floorplan to Home Assistant](https://experiencelovelace.github.io/ha-floorplan/docs/quick-start/#adding-ha-floorplan-to-home-assistant) for insalling `ha-floorplan`.
+- Installed [ha-floorplan](https://github.com/ExperienceLovelace/ha-floorplan) (preferably via HACS). Read the [Adding ha-floorplan to Home Assistant](https://experiencelovelace.github.io/ha-floorplan/docs/quick-start/#adding-ha-floorplan-to-home-assistant) for installing `ha-floorplan`.
 - Optional for SVG conversion (if you want to change the already existing SVG file): Python 3.x to run `convert-svg.py` (tested with Python 3.12).
 
 ### Copy the files into your Home Assistant configuration:
@@ -63,3 +63,268 @@ options:
   -o OUTPUT, --output OUTPUT
                         Output SVG (optional)
 ```
+
+---
+
+## Creating custom sensors
+
+The dashboard exposes three elements for derived daily statistics that the controller does not transmit directly:
+
+- **Te** (Tagesertrag) — total solar energy yield today, in kWh. Resets to 0 at midnight.
+- **Vt** (Volumen Tag) — total water volume pumped today, in liters. Resets to 0 at midnight.
+- **Tz** (Temperaturzuwachs) — storage temperature gain attributable purely to solar heating today, in °C. Resets to 0 at midnight.
+
+Replace `esp_rotex_solaris_rps3` with your actual ESPHome device name throughout. HA-created helper entity IDs may also include a device area prefix — verify the actual entity IDs in **Developer Tools → States** and update `solaris-rps-dashboard.yaml` accordingly.
+
+> [!NOTE]
+> HA automatically prepends the device name to helper names, and may also prepend an area name to entity IDs. The entity IDs shown in this guide are examples only. After creating each helper, always verify the actual entity ID in **Developer Tools → States** and use that exact ID in `solaris-rps-dashboard.yaml`.
+
+---
+
+### Te — Daily energy yield
+
+Tracking daily accumulated energy in kWh from a power sensor (kW) with automatic midnight reset requires two helpers: a **Riemann Sum Integral** (converts instantaneous kW → cumulative kWh) and a **Utility Meter** (resets at midnight).
+
+#### Step 1 — Riemann Sum Integral
+
+**Settings → Devices & Services → Helpers → Create helper → Integral sensor**:
+
+| Field | Value |
+|-------|-------|
+| Name | `ROTEX Solaris RPS Leistung Total` |
+| Input sensor | `sensor.esp_rotex_solaris_rps3_leistung` |
+| Integration method | Left Riemann sum |
+| Metric prefix | None |
+| Integration time | Hours |
+| Precision | 2 |
+
+> Left Riemann sum prevents artificial spikes from fluctuating solar power readings.
+
+**Result entity:** `sensor.rotex_solaris_rps_leistung_total`
+
+#### Step 2 — Utility Meter (daily reset)
+
+**Settings → Devices & Services → Helpers → Create helper → Utility meter**:
+
+| Field | Value |
+|-------|-------|
+| Name | `ROTEX Solaris RPS Leistung Tagesertrag` |
+| Input sensor | `sensor.rotex_solaris_rps_leistung_total` |
+| Meter reset cycle | Daily |
+| Precision | 2 |
+
+**Result entity:** `sensor.rotex_solaris_rps_leistung_tagesertrag`
+
+---
+
+### Vt — Daily water volume
+
+Tracks total liters of water pumped per day. Durchfluss is in `l/min` so the integral must use **minutes** as the time base to yield liters directly.
+
+#### Step 1 — Riemann Sum Integral
+
+**Settings → Devices & Services → Helpers → Create helper → Integral sensor**:
+
+| Field | Value |
+|-------|-------|
+| Name | `ROTEX Solaris RPS Durchfluss Total` |
+| Input sensor | `sensor.esp_rotex_solaris_rps3_durchfluss` |
+| Integration method | Left Riemann sum |
+| Metric prefix | None |
+| Integration time | Minutes |
+| Precision | 1 |
+
+**Result entity:** `sensor.rotex_solaris_rps_durchfluss_total`
+
+#### Step 2 — Utility Meter (daily reset)
+
+**Settings → Devices & Services → Helpers → Create helper → Utility meter**:
+
+| Field | Value |
+|-------|-------|
+| Name | `ROTEX Solaris RPS Durchfluss Tagesertrag` |
+| Input sensor | `sensor.rotex_solaris_rps_durchfluss_total` |
+| Meter reset cycle | Daily |
+| Precision | 0 |
+
+**Result entity:** `sensor.rotex_solaris_rps_durchfluss_tagesertrag`
+
+> The dashboard displays this value in SVG element `df_day_val` (not `vt_val`) — the label shows `Vt` as static text.
+
+---
+
+
+### Tz — Solar-only storage temperature gain
+
+Tz measures only the temperature rise caused by the solar collector. To handle cloud gaps correctly (P drops to 0 for minutes or hours then resumes), the gain is tracked in **segments**: each time solar restarts after a gap, a new segment baseline is captured and the gain from all completed segments is preserved in an accumulator.
+
+**Logic:**
+- When P transitions 0 → >0: save current Ts as `segment_start`.
+- While P > 0: `Tz = accumulated + max(Ts_now − segment_start, 0)`.
+- When P transitions >0 → 0: add `max(Ts_now − segment_start, 0)` to `accumulated`; clear `segment_start`.
+- When Ts **drops by ≥ 2 °C** while P > 0 (e.g. hot-water draw): lock current segment gain into `accumulated`, rebase `segment_start` to the new lower Ts. This ensures the subsequent solar reheat from the lower temperature is fully credited.
+- At midnight: reset all three helpers to 0.
+
+#### Step 1 — helpers
+
+Go to **Settings → Devices & Services → Helpers → Create helper → Number** and create three helpers:
+
+| Name | Min | Max | Step | Unit | Mode |
+|------|-----|-----|------|------|------|
+| `ROTEX Solaris RPS Tz Segment Start` | 0 | 85 | 1 | °C | Input field |
+| `ROTEX Solaris RPS Tz Accumulated` | 0 | 60 | 0.1 | °C | Input field |
+| `ROTEX Solaris RPS Temperaturzuwachs` | 0 | 60 | 1 | °C | Input field |
+
+#### Step 2 — automations
+
+Import each automation individually via **Settings → Automations → ⋮ → Import YAML**.
+
+```yaml
+alias: "ROTEX Solaris RPS Tz - solar segment start"
+description: "When P goes from 0 to ≥ 0.01 kW, capture current Ts as the segment baseline"
+triggers:
+  - trigger: numeric_state
+    entity_id: sensor.esp_rotex_solaris_rps3_leistung
+    above: 0.01
+conditions:
+  - condition: numeric_state
+    entity_id: input_number.rotex_solaris_rps_tz_segment_start
+    below: 0.01
+  - condition: template
+    value_template: >
+      {{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') not in ['unknown', 'unavailable'] }}
+actions:
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.rotex_solaris_rps_tz_segment_start
+    data:
+      value: "{{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float }}"
+```
+
+```yaml
+alias: "ROTEX Solaris RPS Tz - solar segment end"
+description: "When P drops to 0, add this segment's Ts gain to the accumulator and clear the baseline"
+triggers:
+  - trigger: numeric_state
+    entity_id: sensor.esp_rotex_solaris_rps3_leistung
+    below: 0.01
+    for: "00:00:10"
+conditions:
+  - condition: numeric_state
+    entity_id: input_number.rotex_solaris_rps_tz_segment_start
+    above: 0
+  - condition: template
+    value_template: >
+      {{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') not in ['unknown', 'unavailable'] }}
+actions:
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.rotex_solaris_rps_tz_accumulated
+    data:
+      value: >
+        {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float %}
+        {% set seg = states('input_number.rotex_solaris_rps_tz_segment_start') | float %}
+        {% set acc = states('input_number.rotex_solaris_rps_tz_accumulated') | float %}
+        {{ (acc + [ts - seg, 0] | max) | round(1) }}
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.rotex_solaris_rps_tz_segment_start
+    data:
+      value: 0
+```
+
+```yaml
+alias: "ROTEX Solaris RPS Tz - Ts drop rebaseline"
+description: "If Ts drops ≥ 2 °C while P > 0 (e.g. hot-water draw), lock in current segment gain and rebase to new Ts"
+triggers:
+  - trigger: state
+    entity_id: sensor.esp_rotex_solaris_rps3_speichertemperatur
+conditions:
+  - condition: template
+    value_template: >
+      {{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') not in ['unknown', 'unavailable'] }}
+  - condition: numeric_state
+    entity_id: sensor.esp_rotex_solaris_rps3_leistung
+    above: 0.01
+  - condition: template
+    value_template: >
+      {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float %}
+      {% set seg = states('input_number.rotex_solaris_rps_tz_segment_start') | float %}
+      {{ seg > 0 and (seg - ts) >= 2 }}
+actions:
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.rotex_solaris_rps_tz_accumulated
+    data:
+      value: >
+        {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float %}
+        {% set seg = states('input_number.rotex_solaris_rps_tz_segment_start') | float %}
+        {% set acc = states('input_number.rotex_solaris_rps_tz_accumulated') | float %}
+        {{ (acc + [ts - seg, 0] | max) | round(1) }}
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.rotex_solaris_rps_tz_segment_start
+    data:
+      value: "{{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float }}"
+```
+
+```yaml
+alias: "ROTEX Solaris RPS Tz - live update"
+description: "Whenever Ts changes or P turns on, recompute Tz as accumulated gain plus current segment gain"
+triggers:
+  - trigger: state
+    entity_id: sensor.esp_rotex_solaris_rps3_speichertemperatur
+  - trigger: numeric_state
+    entity_id: sensor.esp_rotex_solaris_rps3_leistung
+    above: 0.01
+conditions:
+  - condition: template
+    value_template: >
+      {{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') not in ['unknown', 'unavailable'] }}
+  - condition: numeric_state
+    entity_id: sensor.esp_rotex_solaris_rps3_leistung
+    above: 0.01
+  - condition: numeric_state
+    entity_id: input_number.rotex_solaris_rps_tz_segment_start
+    above: 0
+actions:
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.rotex_solaris_rps_temperaturzuwachs
+    data:
+      value: >
+        {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float %}
+        {% set seg = states('input_number.rotex_solaris_rps_tz_segment_start') | float %}
+        {% set acc = states('input_number.rotex_solaris_rps_tz_accumulated') | float %}
+        {{ (acc + [ts - seg, 0] | max) | round(0) | int }}
+```
+
+```yaml
+alias: "ROTEX Solaris RPS Tz - midnight reset"
+description: "At 00:00 reset all three helpers to 0 for the new day"
+triggers:
+  - trigger: time
+    at: "00:00:00"
+conditions: []
+actions:
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.rotex_solaris_rps_tz_segment_start
+    data:
+      value: 0
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.rotex_solaris_rps_tz_accumulated
+    data:
+      value: 0
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.rotex_solaris_rps_temperaturzuwachs
+    data:
+      value: 0
+```
+
+**Result entity:** `input_number.rotex_solaris_rps_temperaturzuwachs`
+
+> [!NOTE]
+> `segment_start = 0` is the sentinel meaning "no active segment". This works because Ts = 0 °C is physically impossible during solar operation. If your installation is in an extreme climate where Ts could genuinely be 0 °C, change the sentinel to −1 and update **all** of the following: the `above: 0` condition in the segment-end automation, the `seg > 0` check in the rebaseline template condition, the helper `min` value for `ROTEX Solaris RPS Tz Segment Start` from 0 → −1, and all four reset values (in the midnight reset and segment-end automations) from `0` → `-1`.

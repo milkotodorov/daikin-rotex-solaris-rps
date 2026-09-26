@@ -9,7 +9,8 @@ SENSOR_NAMES_ES ={
     "solaris_ha": "Funcionamiento manual",
     "solaris_bk": "Contacto del quemador",
     "solaris_p2": "Bomba de refuerzo",
-    "solaris_err": "Estado de error",
+    "solaris_errcode": "Código de error",
+    "solaris_errdesc": "Descripción de error",
 }
 
 ERROR_CODES_ES ={
@@ -20,7 +21,8 @@ ERROR_CODES_ES ={
     "D": "Sensor de caudal",
     "V": "Sensor de temperatura de ida",
     "G": "Error del convertidor A/D / Error de tensión de alimentación / Error de tensión de referencia",
-    "F": "Caudal mínimo V1 no alcanzado durante el arranque tras el transcurso del 'Tiempo P2'",
-    "W": "Caudal mínimo V1 no alcanzado durante el arranque tras el transcurso del 'Tiempo P2'",
+    "F": "Caudal mínimo V1 no alcanzado durante el arranque tras el transcurso del 'Tiempo P2' — bombas apagadas de forma permanente",
+    "W": "Caudal mínimo V1 no alcanzado durante el arranque tras el transcurso del 'Tiempo P2' — bombas bloqueadas 2 horas, reinicio automático",
+    "X": "ROTEX Solaris RPS Desconectado / No accesible",
     "unknown": "Error desconocido",
 }
