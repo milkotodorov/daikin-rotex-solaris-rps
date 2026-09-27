@@ -161,8 +161,8 @@ Tz zählt einfach, um wie viele Grad die Speichertemperatur (Ts) heute gestiegen
 **Logik:**
 - `last_ts` speichert die Referenztemperatur, ab der der nächste Anstieg gemessen wird.
 - Während der Solarbetrieb **aus** ist (P ≤ 0,01 kW): `last_ts` an den aktuellen Ts-Wert koppeln. Dadurch entspricht `last_ts` im Moment des Solarstarts bereits der aktuellen Temperatur, sodass nur echte Erwärmung nach dem Start gezählt wird — nie ein Anstieg über Nacht oder durch den Nachheizkessel.
-- Wenn Ts über `last_ts` steigt **und 60 s dort bleibt** während P > 0,01 kW: `(Ts − last_ts)` zu Tz addieren, dann `last_ts = Ts` setzen. Die 60-s-Haltezeit filtert vorübergehendes ±1 °C Sensorrauschen — ein einzelner Fehlwert kehrt vor Ablauf der Haltezeit zurück, während echte solare Erwärmung bestehen bleibt. Als Sicherheitsnetz: übersteigt der scheinbare Anstieg 2 °C (für echte Erwärmung innerhalb eines 60-s-Fensters unmöglich — passiert nur, wenn `last_ts` durch einen Neustart veraltet ist), wird `last_ts` neu gesetzt statt gezählt.
-- Wenn Ts unter `last_ts` fällt **und 60 s dort bleibt**: `last_ts` auf den aktuellen Ts-Wert senken. Das addiert keinen Gewinn, sodass eine Warmwasserentnahme nie gegen Sie zählt — der nächste echte Anstieg wird einfach ab dem niedrigeren Wert gezählt. Die 60-s-Haltezeit verhindert außerdem, dass `last_ts` vorübergehenden ±1 °C Rausch-Einbrüchen hinterherläuft: ein Ausschlag, der innerhalb von 60 s zurückkehrt, lässt `last_ts` unverändert, sodass eine schnelle ±1 °C Oszillation auf beiden Flanken vollständig ignoriert wird und Tz nie aufbläht.
+- Wenn Ts über `last_ts` steigt **und 90 s dort bleibt** während P > 0,01 kW: `(Ts − last_ts)` zu Tz addieren, dann `last_ts = Ts` setzen. Die 90-s-Haltezeit filtert vorübergehendes ±1 °C Sensorrauschen — ein einzelner Fehlwert kehrt vor Ablauf der Haltezeit zurück, während echte solare Erwärmung bestehen bleibt. Als Sicherheitsnetz: übersteigt der scheinbare Anstieg 2 °C (für echte Erwärmung innerhalb eines 90-s-Fensters unmöglich — passiert nur, wenn `last_ts` durch einen Neustart veraltet ist), wird `last_ts` neu gesetzt statt gezählt.
+- Wenn Ts unter `last_ts` fällt **und 90 s dort bleibt**: `last_ts` auf den aktuellen Ts-Wert senken. Das addiert keinen Gewinn, sodass eine Warmwasserentnahme nie gegen Sie zählt — der nächste echte Anstieg wird einfach ab dem niedrigeren Wert gezählt. Die 90-s-Haltezeit verhindert außerdem, dass `last_ts` vorübergehenden ±1 °C Rausch-Einbrüchen hinterherläuft: ein Ausschlag, der innerhalb von 90 s zurückkehrt, lässt `last_ts` unverändert, sodass eine schnelle ±1 °C Oszillation auf beiden Flanken vollständig ignoriert wird und Tz nie aufbläht.
 - Um Mitternacht: Tz auf 0 zurücksetzen und `last_ts` auf den aktuellen Ts-Wert setzen.
 
 Da Ts nur in ganzen Grad gemeldet wird, ist Tz immer eine ganze Zahl. Alle Helfer sind `input_number`-Entitäten, die Home Assistant über Neustarts hinweg wiederherstellt — ein Neustart von HA oder des ESPHome-Geräts mitten am Tag setzt die Zählung dort fort, wo sie unterbrochen wurde (siehe Hinweise nach den Automationen).
@@ -212,7 +212,7 @@ actions:
 
 ```yaml
 alias: "ROTEX Solaris RPS Tz - count rise"
-description: "While solar runs (P > 0.01 kW), when Ts rises above last_ts and holds for 60s, add the rise to Tz. The 60s hold rejects transient ±1 °C sensor noise."
+description: "While solar runs (P > 0.01 kW), when Ts rises above last_ts and holds for 90s, add the rise to Tz. The 90s hold rejects transient ±1 °C sensor noise."
 mode: restart
 triggers:
   - trigger: template
@@ -220,7 +220,7 @@ triggers:
       {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float(0) %}
       {% set last = states('input_number.rotex_solaris_rps_tz_last_ts') | float(0) %}
       {{ ts > last }}
-    for: "00:01:00"
+    for: "00:01:30"
 conditions:
   - condition: template
     value_template: >
@@ -253,7 +253,7 @@ actions:
 
 ```yaml
 alias: "ROTEX Solaris RPS Tz - track drop"
-description: "When Ts drops below last_ts and stays down for 60s, lower last_ts to the current Ts so the next rise is counted from there. Adds no gain. The 60s hold stops last_ts from chasing transient ±1 °C noise dips."
+description: "When Ts drops below last_ts and stays down for 90s, lower last_ts to the current Ts so the next rise is counted from there. Adds no gain. The 90s hold stops last_ts from chasing transient ±1 °C noise dips."
 mode: restart
 triggers:
   - trigger: template
@@ -261,7 +261,7 @@ triggers:
       {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float(999) %}
       {% set last = states('input_number.rotex_solaris_rps_tz_last_ts') | float(0) %}
       {{ ts < last }}
-    for: "00:01:00"
+    for: "00:01:30"
 conditions:
   - condition: template
     value_template: >
@@ -306,5 +306,5 @@ actions:
 > [!NOTE]
 > **Verhalten bei Neustart.** Alle vier Zustandswerte liegen in `input_number`-Helfern, die Home Assistant über Neustarts hinweg wiederherstellt, sodass ein Neustart mitten am Tag die Zählung dort fortsetzt, wo sie aufgehört hat.
 > - **HA-Neustart bei laufendem Solarbetrieb:** Helfer werden wiederhergestellt; höchstens ~1 °C kann während der wenigen Sekunden Ausfall verpasst werden. Falls ein Helfer je auf einen veralteten/niedrigen Wert wiederhergestellt wird, setzt das 2-°C-Sicherheitsnetz von „count rise" neu, statt einen Phantom-Sprung zu zählen.
-> - **Neustart des ESPHome-Geräts:** Ts und P lesen kurz `unavailable`. Jede Automation prüft auf `unavailable` und überspringt es, und die 60-s-Haltezeiten überdauern die wenige Sekunden dauernde Wiederverbindung — es entsteht keine fehlerhafte Zählung.
+> - **Neustart des ESPHome-Geräts:** Ts und P lesen kurz `unavailable`. Jede Automation prüft auf `unavailable` und überspringt es, und die 90-s-Haltezeiten überdauern die wenige Sekunden dauernde Wiederverbindung — es entsteht keine fehlerhafte Zählung.
 > - **Erstinstallation / Helfer nie gesetzt:** Helfer anlegen, dann setzt die Automation „baseline while off" `last_ts` beim nächsten Ts-Wert bei ausgeschaltetem Solarbetrieb auf den aktuellen Ts (oder das 10-°C-Sicherheitsnetz fängt es ab, falls Solarbetrieb bereits läuft). In beiden Fällen wird kein Phantom-Gewinn gezählt.

@@ -161,8 +161,8 @@ Tz simply counts how many degrees the storage temperature (Ts) rose while the so
 **Logic:**
 - `last_ts` holds the reference temperature we measure the next rise from.
 - While solar is **off** (P ≤ 0.01 kW): keep `last_ts` glued to the current Ts. This means that the moment solar starts, `last_ts` already equals the current temperature, so only genuine post-start heating is counted — never a rise that happened overnight or from the backup burner.
-- When Ts rises above `last_ts` **and stays there for 60 s** while P > 0.01 kW: add `(Ts − last_ts)` to Tz, then set `last_ts = Ts`. The 60 s hold rejects transient ±1 °C sensor noise — a lone bad reading reverts before the hold elapses, while real solar heating persists. As a safety net, if the apparent rise exceeds 2 °C (impossible for real solar heating within one 60 s window — this only happens if `last_ts` was left stale by a restart), it re-baselines `last_ts` instead of counting.
-- When Ts drops below `last_ts` **and stays down for 60 s**: lower `last_ts` to the current Ts. This adds no gain, so a hot-water draw never counts against you — the next real rise is simply counted from the lower point. The 60 s hold also stops `last_ts` from chasing transient ±1 °C noise dips: a blip that reverts within 60 s leaves `last_ts` untouched, so a fast ±1 °C oscillation is fully ignored on both edges and never inflates Tz.
+- When Ts rises above `last_ts` **and stays there for 90 s** while P > 0.01 kW: add `(Ts − last_ts)` to Tz, then set `last_ts = Ts`. The 90 s hold rejects transient ±1 °C sensor noise — a lone bad reading reverts before the hold elapses, while real solar heating persists. As a safety net, if the apparent rise exceeds 2 °C (impossible for real solar heating within one 90 s window — this only happens if `last_ts` was left stale by a restart), it re-baselines `last_ts` instead of counting.
+- When Ts drops below `last_ts` **and stays down for 90 s**: lower `last_ts` to the current Ts. This adds no gain, so a hot-water draw never counts against you — the next real rise is simply counted from the lower point. The 90 s hold also stops `last_ts` from chasing transient ±1 °C noise dips: a blip that reverts within 90 s leaves `last_ts` untouched, so a fast ±1 °C oscillation is fully ignored on both edges and never inflates Tz.
 - At midnight: reset Tz to 0 and `last_ts` to the current Ts.
 
 Because Ts is reported only in whole degrees, Tz is always a whole number. All helpers are `input_number` entities, which Home Assistant restores across restarts — so a mid-day HA or ESPHome restart resumes counting from where it left off (see the notes after the automations).
@@ -212,7 +212,7 @@ actions:
 
 ```yaml
 alias: "ROTEX Solaris RPS Tz - count rise"
-description: "While solar runs (P > 0.01 kW), when Ts rises above last_ts and holds for 60s, add the rise to Tz. The 60s hold rejects transient ±1 °C sensor noise."
+description: "While solar runs (P > 0.01 kW), when Ts rises above last_ts and holds for 90s, add the rise to Tz. The 90s hold rejects transient ±1 °C sensor noise."
 mode: restart
 triggers:
   - trigger: template
@@ -220,7 +220,7 @@ triggers:
       {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float(0) %}
       {% set last = states('input_number.rotex_solaris_rps_tz_last_ts') | float(0) %}
       {{ ts > last }}
-    for: "00:01:00"
+    for: "00:01:30"
 conditions:
   - condition: template
     value_template: >
@@ -253,7 +253,7 @@ actions:
 
 ```yaml
 alias: "ROTEX Solaris RPS Tz - track drop"
-description: "When Ts drops below last_ts and stays down for 60s, lower last_ts to the current Ts so the next rise is counted from there. Adds no gain. The 60s hold stops last_ts from chasing transient ±1 °C noise dips."
+description: "When Ts drops below last_ts and stays down for 90s, lower last_ts to the current Ts so the next rise is counted from there. Adds no gain. The 90s hold stops last_ts from chasing transient ±1 °C noise dips."
 mode: restart
 triggers:
   - trigger: template
@@ -261,7 +261,7 @@ triggers:
       {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float(999) %}
       {% set last = states('input_number.rotex_solaris_rps_tz_last_ts') | float(0) %}
       {{ ts < last }}
-    for: "00:01:00"
+    for: "00:01:30"
 conditions:
   - condition: template
     value_template: >
@@ -306,5 +306,5 @@ actions:
 > [!NOTE]
 > **Restart behavior.** All four state values live in `input_number` helpers, which Home Assistant restores across restarts, so a mid-day restart resumes counting where it left off.
 > - **HA restart while solar runs:** helpers restore; at most ~1 °C may be missed during the few seconds HA is down. If a helper is ever restored to a stale/low value, the count-rise 2 °C safety net re-baselines instead of counting a phantom jump.
-> - **ESPHome device restart:** Ts and P briefly read `unavailable`. Every automation checks for `unavailable` and skips it, and the 60 s holds outlast the few-second reconnect, so no spurious count or drop occurs.
+> - **ESPHome device restart:** Ts and P briefly read `unavailable`. Every automation checks for `unavailable` and skips it, and the 90 s holds outlast the few-second reconnect, so no spurious count or drop occurs.
 > - **First install / helper never set:** create the helpers, then the "baseline while off" automation sets `last_ts` to the current Ts at the next Ts reading while solar is off (or the 10 °C safety net catches it if solar is already running). Either way, no phantom gain is counted.
