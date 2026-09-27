@@ -156,89 +156,71 @@ Erfasst die gesamten pro Tag gepumpten Liter. Durchfluss wird in `l/min` gemesse
 
 ### Tz — Solarer Temperaturzuwachs im Speicher
 
-Tz misst nur den durch den Solarkollektor verursachten Temperaturanstieg. Um Wolkenlücken korrekt zu behandeln (P fällt für Minuten oder Stunden auf 0 und nimmt dann wieder zu), wird der Anstieg in **Segmenten** verfolgt: Jedes Mal, wenn der Solarertrag nach einer Pause wieder startet, wird eine neue Segment-Baseline erfasst, und der Gewinn aus allen abgeschlossenen Segmenten wird in einem Akkumulator gespeichert.
+Tz zählt einfach, um wie viele Grad die Speichertemperatur (Ts) heute gestiegen ist, während die Solarpumpe lief. Immer wenn Ts steigt und oben bleibt, wird der Anstieg zum Zähler addiert. Rückgänge (durch Warmwasserentnahme oder Sensorrauschen) werden ignoriert — nach einem Rückgang wird ab der neuen niedrigeren Temperatur einfach weitergezählt. Der Zähler wird um Mitternacht zurückgesetzt.
 
 **Logik:**
-- Wenn P von 0 auf >0 wechselt: aktuellen Ts als `segment_start` speichern.
-- Während P > 0: `Tz = akkumuliert + max(Ts_aktuell − segment_start, 0)`.
-- Wenn P von >0 auf 0 wechselt: `max(Ts_aktuell − segment_start, 0)` zu `akkumuliert` addieren; `segment_start` zurücksetzen.
-- Wenn Ts **um ≥ 2 °C sinkt** während P > 0 (z.B. Warmwasserentnahme): aktuellen Segment-Gewinn in `akkumuliert` einschließen, `segment_start` auf den neuen niedrigeren Ts-Wert setzen. So wird die anschließende solare Wiedererwärmung ab dem niedrigeren Niveau vollständig angerechnet.
-- Um Mitternacht: alle drei Helfer auf 0 zurücksetzen.
+- `last_ts` speichert die Referenztemperatur, ab der der nächste Anstieg gemessen wird.
+- Während der Solarbetrieb **aus** ist (P ≤ 0,01 kW): `last_ts` an den aktuellen Ts-Wert koppeln. Dadurch entspricht `last_ts` im Moment des Solarstarts bereits der aktuellen Temperatur, sodass nur echte Erwärmung nach dem Start gezählt wird — nie ein Anstieg über Nacht oder durch den Nachheizkessel.
+- Wenn Ts über `last_ts` steigt **und 60 s dort bleibt** während P > 0,01 kW: `(Ts − last_ts)` zu Tz addieren, dann `last_ts = Ts` setzen. Die 60-s-Haltezeit filtert vorübergehendes ±1 °C Sensorrauschen — ein einzelner Fehlwert kehrt vor Ablauf der Haltezeit zurück, während echte solare Erwärmung bestehen bleibt. Als Sicherheitsnetz: übersteigt der scheinbare Anstieg 10 °C (für echte Erwärmung innerhalb eines 60-s-Fensters unmöglich — passiert nur, wenn `last_ts` durch einen Neustart veraltet ist), wird `last_ts` neu gesetzt statt gezählt.
+- Wenn Ts unter `last_ts` fällt **und 60 s dort bleibt**: `last_ts` auf den aktuellen Ts-Wert senken. Das addiert keinen Gewinn, sodass eine Warmwasserentnahme nie gegen Sie zählt — der nächste echte Anstieg wird einfach ab dem niedrigeren Wert gezählt. Die 60-s-Haltezeit verhindert außerdem, dass `last_ts` vorübergehenden ±1 °C Rausch-Einbrüchen hinterherläuft: ein Ausschlag, der innerhalb von 60 s zurückkehrt, lässt `last_ts` unverändert, sodass eine schnelle ±1 °C Oszillation auf beiden Flanken vollständig ignoriert wird und Tz nie aufbläht.
+- Um Mitternacht: Tz auf 0 zurücksetzen und `last_ts` auf den aktuellen Ts-Wert setzen.
+
+Da Ts nur in ganzen Grad gemeldet wird, ist Tz immer eine ganze Zahl. Alle Helfer sind `input_number`-Entitäten, die Home Assistant über Neustarts hinweg wiederherstellt — ein Neustart von HA oder des ESPHome-Geräts mitten am Tag setzt die Zählung dort fort, wo sie unterbrochen wurde (siehe Hinweise nach den Automationen).
 
 #### Schritt 1 — Helfer
 
-Gehen Sie zu **Einstellungen → Geräte & Dienste → Helfer → Helfer erstellen → Zahl** und erstellen Sie drei Helfer:
+Gehen Sie zu **Einstellungen → Geräte & Dienste → Helfer → Helfer erstellen → Zahl** und erstellen Sie zwei Helfer:
 
 | Name | Min | Max | Schritt | Einheit | Modus |
 |------|-----|-----|---------|---------|-------|
-| `ROTEX Solaris RPS Tz Segment Start` | 0 | 85 | 1 | °C | Eingabefeld |
-| `ROTEX Solaris RPS Tz Accumulated` | 0 | 60 | 0.1 | °C | Eingabefeld |
 | `ROTEX Solaris RPS Temperaturzuwachs` | 0 | 60 | 1 | °C | Eingabefeld |
+| `ROTEX Solaris RPS Tz Last Ts` | 0 | 85 | 1 | °C | Eingabefeld |
 
 #### Schritt 2 — Automationen
 
 Importieren Sie jede Automation einzeln über **Einstellungen → Automationen → ⋮ → YAML importieren**.
 
 ```yaml
-alias: "ROTEX Solaris RPS Tz - solar segment start"
-description: "When P goes from 0 to ≥ 0.01 kW, capture current Ts as the segment baseline"
+alias: "ROTEX Solaris RPS Tz - baseline while off"
+description: "While solar is off (P ≤ 0.01 kW), keep last_ts glued to the current Ts, so counting resumes from the current temperature the moment solar starts."
+mode: restart
 triggers:
+  - trigger: state
+    entity_id: sensor.esp_rotex_solaris_rps3_speichertemperatur
   - trigger: numeric_state
     entity_id: sensor.esp_rotex_solaris_rps3_leistung
-    above: 0.01
-conditions:
-  - condition: numeric_state
-    entity_id: input_number.rotex_solaris_rps_tz_segment_start
     below: 0.01
+conditions:
   - condition: template
     value_template: >
       {{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') not in ['unknown', 'unavailable'] }}
+  - condition: numeric_state
+    entity_id: sensor.esp_rotex_solaris_rps3_leistung
+    below: 0.01
+  - condition: template
+    value_template: >
+      {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float %}
+      {% set last = states('input_number.rotex_solaris_rps_tz_last_ts') | float %}
+      {{ ts != last }}
 actions:
   - action: input_number.set_value
     target:
-      entity_id: input_number.rotex_solaris_rps_tz_segment_start
+      entity_id: input_number.rotex_solaris_rps_tz_last_ts
     data:
       value: "{{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float }}"
 ```
 
 ```yaml
-alias: "ROTEX Solaris RPS Tz - solar segment end"
-description: "When P drops to 0, add this segment's Ts gain to the accumulator and clear the baseline"
+alias: "ROTEX Solaris RPS Tz - count rise"
+description: "While solar runs (P > 0.01 kW), when Ts rises above last_ts and holds for 60s, add the rise to Tz. The 60s hold rejects transient ±1 °C sensor noise."
+mode: restart
 triggers:
-  - trigger: numeric_state
-    entity_id: sensor.esp_rotex_solaris_rps3_leistung
-    below: 0.01
-    for: "00:00:10"
-conditions:
-  - condition: numeric_state
-    entity_id: input_number.rotex_solaris_rps_tz_segment_start
-    above: 0
-  - condition: template
+  - trigger: template
     value_template: >
-      {{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') not in ['unknown', 'unavailable'] }}
-actions:
-  - action: input_number.set_value
-    target:
-      entity_id: input_number.rotex_solaris_rps_tz_accumulated
-    data:
-      value: >
-        {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float %}
-        {% set seg = states('input_number.rotex_solaris_rps_tz_segment_start') | float %}
-        {% set acc = states('input_number.rotex_solaris_rps_tz_accumulated') | float %}
-        {{ (acc + [ts - seg, 0] | max) | round(1) }}
-  - action: input_number.set_value
-    target:
-      entity_id: input_number.rotex_solaris_rps_tz_segment_start
-    data:
-      value: 0
-```
-
-```yaml
-alias: "ROTEX Solaris RPS Tz - Ts drop rebaseline"
-description: "Wenn Ts um ≥ 2 °C sinkt während P > 0 (z.B. Warmwasserentnahme), Segment-Gewinn einschließen und auf neuen Ts-Wert setzen"
-triggers:
-  - trigger: state
-    entity_id: sensor.esp_rotex_solaris_rps3_speichertemperatur
+      {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float(0) %}
+      {% set last = states('input_number.rotex_solaris_rps_tz_last_ts') | float(0) %}
+      {{ ts > last }}
+    for: "00:01:00"
 conditions:
   - condition: template
     value_template: >
@@ -249,44 +231,8 @@ conditions:
   - condition: template
     value_template: >
       {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float %}
-      {% set seg = states('input_number.rotex_solaris_rps_tz_segment_start') | float %}
-      {{ seg > 0 and (seg - ts) >= 2 }}
-actions:
-  - action: input_number.set_value
-    target:
-      entity_id: input_number.rotex_solaris_rps_tz_accumulated
-    data:
-      value: >
-        {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float %}
-        {% set seg = states('input_number.rotex_solaris_rps_tz_segment_start') | float %}
-        {% set acc = states('input_number.rotex_solaris_rps_tz_accumulated') | float %}
-        {{ (acc + [ts - seg, 0] | max) | round(1) }}
-  - action: input_number.set_value
-    target:
-      entity_id: input_number.rotex_solaris_rps_tz_segment_start
-    data:
-      value: "{{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float }}"
-```
-
-```yaml
-alias: "ROTEX Solaris RPS Tz - live update"
-description: "Whenever Ts changes or P turns on, recompute Tz as accumulated gain plus current segment gain"
-triggers:
-  - trigger: state
-    entity_id: sensor.esp_rotex_solaris_rps3_speichertemperatur
-  - trigger: numeric_state
-    entity_id: sensor.esp_rotex_solaris_rps3_leistung
-    above: 0.01
-conditions:
-  - condition: template
-    value_template: >
-      {{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') not in ['unknown', 'unavailable'] }}
-  - condition: numeric_state
-    entity_id: sensor.esp_rotex_solaris_rps3_leistung
-    above: 0.01
-  - condition: numeric_state
-    entity_id: input_number.rotex_solaris_rps_tz_segment_start
-    above: 0
+      {% set last = states('input_number.rotex_solaris_rps_tz_last_ts') | float %}
+      {{ ts > last }}
 actions:
   - action: input_number.set_value
     target:
@@ -294,14 +240,48 @@ actions:
     data:
       value: >
         {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float %}
-        {% set seg = states('input_number.rotex_solaris_rps_tz_segment_start') | float %}
-        {% set acc = states('input_number.rotex_solaris_rps_tz_accumulated') | float %}
-        {{ (acc + [ts - seg, 0] | max) | round(0) | int }}
+        {% set last = states('input_number.rotex_solaris_rps_tz_last_ts') | float %}
+        {% set tz = states('input_number.rotex_solaris_rps_temperaturzuwachs') | float %}
+        {% set rise = ts - last %}
+        {{ (tz + rise) | round(0) | int if 0 < rise <= 10 else tz | round(0) | int }}
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.rotex_solaris_rps_tz_last_ts
+    data:
+      value: "{{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float }}"
+```
+
+```yaml
+alias: "ROTEX Solaris RPS Tz - track drop"
+description: "When Ts drops below last_ts and stays down for 60s, lower last_ts to the current Ts so the next rise is counted from there. Adds no gain. The 60s hold stops last_ts from chasing transient ±1 °C noise dips."
+mode: restart
+triggers:
+  - trigger: template
+    value_template: >
+      {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float(999) %}
+      {% set last = states('input_number.rotex_solaris_rps_tz_last_ts') | float(0) %}
+      {{ ts < last }}
+    for: "00:01:00"
+conditions:
+  - condition: template
+    value_template: >
+      {{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') not in ['unknown', 'unavailable'] }}
+  - condition: template
+    value_template: >
+      {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float(999) %}
+      {% set last = states('input_number.rotex_solaris_rps_tz_last_ts') | float(0) %}
+      {{ ts < last }}
+actions:
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.rotex_solaris_rps_tz_last_ts
+    data:
+      value: "{{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float }}"
 ```
 
 ```yaml
 alias: "ROTEX Solaris RPS Tz - midnight reset"
-description: "At 00:00 reset all three helpers to 0 for the new day"
+description: "At 00:00 reset Tz to 0 and re-baseline last_ts to the current Ts for the new day"
 triggers:
   - trigger: time
     at: "00:00:00"
@@ -309,22 +289,22 @@ conditions: []
 actions:
   - action: input_number.set_value
     target:
-      entity_id: input_number.rotex_solaris_rps_tz_segment_start
-    data:
-      value: 0
-  - action: input_number.set_value
-    target:
-      entity_id: input_number.rotex_solaris_rps_tz_accumulated
-    data:
-      value: 0
-  - action: input_number.set_value
-    target:
       entity_id: input_number.rotex_solaris_rps_temperaturzuwachs
     data:
       value: 0
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.rotex_solaris_rps_tz_last_ts
+    data:
+      value: >
+        {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') %}
+        {{ ts | float if ts not in ['unknown', 'unavailable'] else states('input_number.rotex_solaris_rps_tz_last_ts') | float }}
 ```
 
 **Ergebnis-Entität:** `input_number.rotex_solaris_rps_temperaturzuwachs`
 
 > [!NOTE]
-> `segment_start = 0` ist der Sentinel-Wert für „kein aktives Segment". Dies funktioniert, weil Ts = 0 °C im Solarbetrieb physikalisch unmöglich ist. Wenn Ihre Anlage in einem extremen Klima betrieben wird, in dem Ts tatsächlich 0 °C erreichen könnte, ändern Sie den Sentinel-Wert auf −1 und aktualisieren Sie **alle** folgenden Stellen: die Bedingung `above: 0` in der Segment-End-Automation, die Prüfung `seg > 0` in der Rebaseline-Template-Bedingung, den Minimalwert des Helfers `ROTEX Solaris RPS Tz Segment Start` von 0 → −1 sowie alle vier Reset-Werte (in der Mitternachts-Reset- und der Segment-End-Automation) von `0` → `-1`.
+> **Verhalten bei Neustart.** Alle vier Zustandswerte liegen in `input_number`-Helfern, die Home Assistant über Neustarts hinweg wiederherstellt, sodass ein Neustart mitten am Tag die Zählung dort fortsetzt, wo sie aufgehört hat.
+> - **HA-Neustart bei laufendem Solarbetrieb:** Helfer werden wiederhergestellt; höchstens ~1 °C kann während der wenigen Sekunden Ausfall verpasst werden. Falls ein Helfer je auf einen veralteten/niedrigen Wert wiederhergestellt wird, setzt das 10-°C-Sicherheitsnetz von „count rise" neu, statt einen Phantom-Sprung zu zählen.
+> - **Neustart des ESPHome-Geräts:** Ts und P lesen kurz `unavailable`. Jede Automation prüft auf `unavailable` und überspringt es, und die 60-s-Haltezeiten überdauern die wenige Sekunden dauernde Wiederverbindung — es entsteht keine fehlerhafte Zählung.
+> - **Erstinstallation / Helfer nie gesetzt:** Helfer anlegen, dann setzt die Automation „baseline while off" `last_ts` beim nächsten Ts-Wert bei ausgeschaltetem Solarbetrieb auf den aktuellen Ts (oder das 10-°C-Sicherheitsnetz fängt es ab, falls Solarbetrieb bereits läuft). In beiden Fällen wird kein Phantom-Gewinn gezählt.
