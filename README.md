@@ -91,19 +91,24 @@ Nachdem Sie sich mit dem Code als technischer Benutzer angemeldet haben, gehen S
 
 ### Serielle Datenstruktur
 
-| Metrik | Beschreibung                      | Referenz | Typ    |
-| ------ | --------------------------------- | -------- | ------ |
-| HA     | Manueller Betrieb                 | 1        | bool   |
-| BK     | Brennerkontakt                    | 2        | bool   |
-| P1     | Umwälzpumpe (%)                   | 3        | int    |
-| P2     | Boosterpumpe                      | 4        | bool   |
-| TK     | Kollektortemperatur (°C)          | 5        | int    |
-| TR     | Rücklauftemperatur (°C)           | 6        | int    |
-| TS     | Speichertemperatur (°C)           | 7        | int    |
-| TV     | Vorlauftemperatur (°C)            | 8        | int    |
-| V      | Durchflussrate (l/min)            | 9        | float  |
-| Err    | Fehlerstatus (''/K/R/S/V/D/G/F/W) | 10       | string |
-| P      | Leistung (Watt)                   | 11       | int    |
+| Metrik  | Beschreibung                                                                             | Referenz | Typ    |
+| ------- | ---------------------------------------------------------------------------------------- | -------- | ------ |
+| HA      | Manueller Betrieb                                                                        | 1        | bool   |
+| BK      | Brennerkontakt                                                                           | 2        | bool   |
+| P1      | Umwälzpumpe (%)                                                                          | 3        | int    |
+| P2      | Boosterpumpe                                                                             | 4        | bool   |
+| TK      | Kollektortemperatur (°C)                                                                 | 5        | int    |
+| TR      | Rücklauftemperatur (°C)                                                                  | 6        | int    |
+| TS      | Speichertemperatur (°C)                                                                  | 7        | int    |
+| TV      | Vorlauftemperatur (°C)                                                                   | 8        | int    |
+| V       | Durchflussrate (l/min)                                                                   | 9        | float  |
+| Err     | Fehlerstatus (''/K/R/S/V/D/G/F/W)                                                        | 10       | string |
+| P       | Leistung (Watt)                                                                          | 11       | int    |
+| DeltaT¹ | Sollspreizung — Soll-Temperaturdifferenz TV−TR bei Modulationsbetrieb (errechnet)        | 12       | int    |
+| Zust²   | Betriebszustand: 23 = aktiver Solarbetrieb, 21 = Bereitschaft/kein aktiver Solarbetrieb  | 13       | int    |
+
+¹ Nur RPS4 — als `solaris_deltat` veröffentlicht; bei RPS3 wird TV−TR berechnet und stattdessen veröffentlicht.
+² Nur RPS4 — wird empfangen und protokolliert, aber nicht als HA-Sensor veröffentlicht.
 
 Fehlerstatus:
 

@@ -105,12 +105,17 @@ Uncomment the `DEBUG SIMULATION` block at the top of `DaikinRotexSolarisComponen
 The controller emits one semicolon-delimited line per cycle:
 
 ```
-Ha;BK;P1;P2;TK;TR;TS;TV;DF;Err;P      e.g.  0;1;75;0;84;58;61;63;3,2;;3500
+Ha;BK;P1;P2;TK;TR;TS;TV;DF;Err;P                   e.g.  0;1;75;0;84;58;61;63;3,2;;3500       (RPS3, 11 fields)
+Ha;BK;P1;P2;TK;TR;TS;TV;DF;Err;P;DeltaT;Zust        e.g.  0;0;0;0;51;45;49;43;0,0;;0;20;21    (RPS4, 13 fields)
 ```
 
 Field order is fixed and encoded in the `SolarisFields` enum in `daikin_rotex_solaris.h`
-(`TOTAL_FIELDS = 11`): manual operation, burner contact, circulation pump %, booster pump,
+(`MIN_FIELDS = 11`, `TOTAL_FIELDS = 13`): manual operation, burner contact, circulation pump %, booster pump,
 collector/return/storage/flow temperatures (°C), flow rate (l/min), error code, power (W).
+RPS4 appends two extra fields: `DeltaT` (field 12 — Sollspreizung: target TV−TR differential during
+modulated operation, calculated) is published as `solaris_deltat`; on RPS3 the component derives the
+same value as `TV−TR` from the parsed integers. `Zust` (field 13 — Betriebszustand: 23 = active solar,
+21 = standby) is received and logged but not published as a HA sensor.
 
 Quirks handled in `parse_line_()` — preserve them:
 
@@ -119,7 +124,7 @@ Quirks handled in `parse_line_()` — preserve them:
 - Power arrives in **Watts** and is published in **kW** (`publish_values_`: ÷1000, rounded to 2 dp).
 - Boot/info banner lines (`SOLARIS`, `Zyklus`, `HA;BK;P1`) are detected and ignored.
 - Lines are rejected unless length is within `MIN_LINE_LEN..MAX_LINE_LEN` **and** the semicolon token
-  count is exactly `TOTAL_FIELDS`.
+  count is within `MIN_FIELDS..TOTAL_FIELDS` (11–13); `DeltaT` (field 12) is published as `solaris_deltat`, `Zust` (field 13) is logged only.
 - `LINE_TIMEOUT_MS` (5 s) discards a stale partial buffer; after `OFFLINE_TIMEOUT_MS` (90 s) of
   silence `invalidate_all_sensors_()` publishes `NAN` / `invalidate_state()` so HA shows N/A rather
   than stale values.

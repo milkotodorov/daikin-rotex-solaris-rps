@@ -237,6 +237,27 @@ cards:
               service_data:
                 class: '${entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : "txt-blue txt-medium txt-bold"}'
 
+        # DeltaT - Target spread (Sollspreizung)
+        # RPS3: derived as TV−TR (clamped to 0); RPS4: reported directly by controller
+        - element: deltat_txt
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: ΔT
+            - service: floorplan.class_set
+              service_data:
+                class: txt-blue txt-large txt-bold non-clickable
+
+        - entity: sensor.esp_rotex_solaris_rps3_sollspreizung
+          element: deltat_val
+          state_action:
+            - service: floorplan.text_set
+              service_data:
+                text: '${entity.state === "unknown" || entity.state === "unavailable" ? "N/A" : parseInt(entity.state) + " °C"}'
+            - service: floorplan.class_set
+              service_data:
+                class: '${entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : "txt-blue txt-medium txt-bold"}'
+
         # TS - Storage temperature (Speichertemperatur)
         # S error logic: Solaris max storage temp configured at 65°C ("Ts max" parameter, 2°C hysteresis).
         # Error triggers above 65°C, clears below 63°C ("Ts max" - 2).

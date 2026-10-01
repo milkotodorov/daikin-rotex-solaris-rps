@@ -11,6 +11,7 @@ SENSOR_NAMES_IT ={
     "solaris_p2": "Pompa di potenziamento",
     "solaris_errcode": "Codice errore",
     "solaris_errdesc": "Descrizione errore",
+    "solaris_deltat": "Differenziale target",
 }
 
 ERROR_CODES_IT ={

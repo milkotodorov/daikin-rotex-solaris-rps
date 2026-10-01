@@ -114,6 +114,19 @@ SENSORS_CONFIG = [
         'state_class': STATE_CLASS_MEASUREMENT,
         'accuracy': 2,
     },
+    # Target temperature differential TV−TR during modulated operation (°C)
+    # RPS3: calculated as TV−TR; RPS4: reported directly as field 12 (DeltaT)
+    {
+        'type': 'numeric',
+        'key': 'solaris_deltat',
+        'display_name': lambda lang: get_sensor_name('solaris_deltat', lang),
+        'setter': 'set_solaris_deltat_sensor',
+        'unit': UNIT_CELSIUS,
+        'icon': 'mdi:thermometer-chevron-up',
+        'device_class': DEVICE_CLASS_TEMPERATURE,
+        'state_class': STATE_CLASS_MEASUREMENT,
+        'accuracy': 0,
+    },
     # ===============
     # Binary Sensors
     # ===============

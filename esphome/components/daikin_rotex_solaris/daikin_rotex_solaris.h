@@ -36,12 +36,14 @@ static constexpr uint16_t ERROR_MSG_BUFFER_SIZE = 256;    // Error message buffe
 // DATA STRUCTURE - Solaris RPS protocol
 // ============================================================================
 // Field count bounds for one complete data line
-// RPS3 sends 11 fields; RPS4 sends up to 13 (fields 11=FLS type, 12=unknown)
+// RPS3 sends 11 fields; RPS4 sends 13:
+//   field 11 = DeltaT — Sollspreizung (target temp. differential TV−TR during modulation, calculated)
+//   field 12 = Zust   — Betriebszustand (operating state): 23=active solar, 21=standby
 static constexpr uint8_t MIN_FIELDS = 11;
 static constexpr uint8_t TOTAL_FIELDS = 13;
 
 // Enum for field indices in the parsed data array
-// Protocol format: "Ha;BK;P1;P2;TK;TR;TS;TV;DF;ERR;PWR[;FLS;?]"
+// Protocol format: "Ha;BK;P1;P2;TK;TR;TS;TV;DF;ERR;PWR[;DeltaT;Zust]"
 enum SolarisFields : uint8_t {
   SOLARIS_HA = 0,   // Handbetrieb (Manual Operation flag, 0/1)
   SOLARIS_BK = 1,   // Brennerkontakt (Burner Contact flag, 0/1)
@@ -53,7 +55,8 @@ enum SolarisFields : uint8_t {
   SOLARIS_TV = 7,   // Vorlauftemperatur (Flow Temperature, °C)
   SOLARIS_DF = 8,   // Durchfluss (Flow Rate, l/min, uses comma as decimal separator)
   SOLARIS_ERR = 9,  // Error code (single character: '', K, R, S, D, V, G, F, W) → published as Fehlercode (raw) + Fehlerbeschreibung (translated)
-  SOLARIS_PWR = 10  // Leistung (Power output, Watts)
+  SOLARIS_PWR = 10, // Leistung (Power output, Watts)
+  SOLARIS_DT = 11   // DeltaT/Sollspreizung (RPS4 field; RPS3 computes it as TV−TR)
 };
 
 // ============================================================================
@@ -77,6 +80,7 @@ class DaikinRotexSolarisComponent : public Component, public uart::UARTDevice {
     void set_solaris_tv_sensor(sensor::Sensor *s) { solaris_tv_sensor_ = s; }
     void set_solaris_df_sensor(sensor::Sensor *s) { solaris_df_sensor_ = s; }
     void set_solaris_pwr_sensor(sensor::Sensor *s) { solaris_pwr_sensor_ = s; }
+    void set_solaris_deltat_sensor(sensor::Sensor *s) { solaris_deltat_sensor_ = s; }
 
     // Binary sensors (on/off states)
     void set_solaris_ha_sensor(binary_sensor::BinarySensor *s) { solaris_ha_sensor_ = s; }
@@ -105,7 +109,7 @@ class DaikinRotexSolarisComponent : public Component, public uart::UARTDevice {
     void invalidate_all_sensors_();
 
     // Publishes parsed values to all registered sensor entities
-    void publish_values_(const int int_values[], float solaris_df, char error_code);
+    void publish_values_(const int int_values[], float solaris_df, char error_code, uint8_t token_count);
 
     // Gets error code description from error code character
     const char *get_error_text_(char error_code);
@@ -121,6 +125,7 @@ class DaikinRotexSolarisComponent : public Component, public uart::UARTDevice {
     sensor::Sensor *solaris_tv_sensor_{nullptr};
     sensor::Sensor *solaris_df_sensor_{nullptr};
     sensor::Sensor *solaris_pwr_sensor_{nullptr};
+    sensor::Sensor *solaris_deltat_sensor_{nullptr};
 
     // Binary sensors (on/off states)
     binary_sensor::BinarySensor *solaris_ha_sensor_{nullptr};
@@ -141,6 +146,7 @@ class DaikinRotexSolarisComponent : public Component, public uart::UARTDevice {
     char buffer_[BUFFER_SIZE];      // Circular RX buffer for one complete line
     uint8_t buffer_idx_{0};         // Current write position in buffer
     uint32_t last_char_time_{0};    // Timestamp of last received character (used for timeout)
+    uint32_t p2_off_time_{0};       // Timestamp when P2 last turned off (RPS3 DeltaT hold-off)
 
     // ========================================================================
     // REUSABLE TEMPORARY BUFFERS

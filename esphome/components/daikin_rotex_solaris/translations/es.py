@@ -11,6 +11,7 @@ SENSOR_NAMES_ES ={
     "solaris_p2": "Bomba de refuerzo",
     "solaris_errcode": "Código de error",
     "solaris_errdesc": "Descripción de error",
+    "solaris_deltat": "Diferencial objetivo",
 }
 
 ERROR_CODES_ES ={

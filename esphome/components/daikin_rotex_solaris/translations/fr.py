@@ -11,6 +11,7 @@ SENSOR_NAMES_FR ={
     "solaris_p2": "Pompe de suralimentation",
     "solaris_errcode": "Code d'erreur",
     "solaris_errdesc": "Description d'erreur",
+    "solaris_deltat": "Écart cible",
 }
 
 ERROR_CODES_FR ={

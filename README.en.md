@@ -91,19 +91,24 @@ After you are logged as technical user with the code, go to `System` -> `Data ou
 
 ### Serial data structure
 
-| Metric | Description                        | Reference | Type   |
-| ------ | ---------------------------------- | --------- | ------ |
-| HA     | Manual Operation                   | 1         | bool   |
-| BK     | Burner Contact                     | 2         | bool   |
-| P1     | Circulation Pump Rate              | 3         | int    |
-| P2     | Booster Pump Enabled               | 4         | bool   |
-| TK     | Collector Temp (°C)                | 5         | int    |
-| TR     | Return Temp (°C)                   | 6         | int    |
-| TS     | Storage Temp (°C)                  | 7         | int    |
-| TV     | Flow Temp (°C)                     | 8         | int    |
-| V      | Flow Rate (l/min)                  | 9         | float  |
-| Err    | Error Status (''/K/R/S/V/D/G/F/W)  | 10        | string |
-| P      | Power (Watt)                       | 11        | int    |
+| Metric  | Description                                                                                   | Reference | Type   |
+| ------- | --------------------------------------------------------------------------------------------- | --------- | ------ |
+| HA      | Manual Operation                                                                              | 1         | bool   |
+| BK      | Burner Contact                                                                                | 2         | bool   |
+| P1      | Circulation Pump Rate                                                                         | 3         | int    |
+| P2      | Booster Pump Enabled                                                                          | 4         | bool   |
+| TK      | Collector Temp (°C)                                                                           | 5         | int    |
+| TR      | Return Temp (°C)                                                                              | 6         | int    |
+| TS      | Storage Temp (°C)                                                                             | 7         | int    |
+| TV      | Flow Temp (°C)                                                                                | 8         | int    |
+| V       | Flow Rate (l/min)                                                                             | 9         | float  |
+| Err     | Error Status (''/K/R/S/V/D/G/F/W)                                                             | 10        | string |
+| P       | Power (Watt)                                                                                  | 11        | int    |
+| DeltaT¹ | Target spread — target temperature differential TV−TR during modulated operation (calculated) | 12        | int    |
+| Zust²   | Operating state: 23 = active solar operation, 21 = standby / no active solar operation        | 13        | int    |
+
+¹ RPS4 only — published as `solaris_deltat`; on RPS3 TV−TR is calculated and published instead.
+² RPS4 only — received and logged by the component but not published as a HA sensor.
 
 Error status:
 

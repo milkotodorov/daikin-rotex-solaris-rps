@@ -13,6 +13,7 @@ void DaikinRotexSolarisComponent::dump_config() {
   LOG_SENSOR("  ", "solaris_tv", solaris_tv_sensor_);
   LOG_SENSOR("  ", "solaris_df", solaris_df_sensor_);
   LOG_SENSOR("  ", "solaris_pwr", solaris_pwr_sensor_);
+  LOG_SENSOR("  ", "solaris_deltat", solaris_deltat_sensor_);
   LOG_SENSOR("  ", "solaris_p1", solaris_p1_sensor_);
   LOG_BINARY_SENSOR("  ", "solaris_p2", solaris_p2_sensor_);
   LOG_BINARY_SENSOR("  ", "solaris_ha", solaris_ha_sensor_);
@@ -154,9 +155,17 @@ void DaikinRotexSolarisComponent::parse_line_(const char *line, size_t len) {
     }
     if (strncmp(line, BOOT_LINE3, 8) == 0) {
       #if ESPHOME_LOG_LEVEL >= ESPHOME_LOG_LEVEL_INFO
-      const char BOOT_LINE_UTF8[] = "HA;BK;P1 /%;P2;TK /°C;TR /°C;TS /°C;TV /°C;V /l/min;ERROR;P/W";
       ESP_LOGI(TAG, "Boot/info line detected, ignoring.");
-      ESP_LOGI(TAG, "Solaris line UTF-8: '%s'", BOOT_LINE_UTF8);
+      // RPS4 header has more fields than RPS3 — count semicolons to distinguish
+      uint8_t hdr_tokens = 0;
+      for (size_t i = 0; i <= len; i++) {
+        if (i == len || line[i] == ';') hdr_tokens++;
+      }
+      if (hdr_tokens > MIN_FIELDS) {
+        ESP_LOGI(TAG, "Solaris line UTF-8: 'HA;BK;P1 /%;P2;TK /°C;TR /°C;TS /°C;TV /°C;V /l/min;ERROR;P/W;DeltaT;Zust'");
+      } else {
+        ESP_LOGI(TAG, "Solaris line UTF-8: 'HA;BK;P1 /%;P2;TK /°C;TR /°C;TS /°C;TV /°C;V /l/min;ERROR;P/W'");
+      }
       #endif
       return;
     }
@@ -282,10 +291,19 @@ void DaikinRotexSolarisComponent::parse_line_(const char *line, size_t len) {
   // ========================================================================
   // PUBLISH PARSED DATA FOR ALL SENSORS
   // ========================================================================
-  publish_values_(int_values, solaris_df, error_code);
+  publish_values_(int_values, solaris_df, error_code, token_count);
 
   #if ESPHOME_LOG_LEVEL >= ESPHOME_LOG_LEVEL_DEBUG
   ESP_LOGD(TAG, "Parse complete: %u tokens processed successfully", token_idx);
+  if (token_count > MIN_FIELDS) {
+    // field 12 = Zust (Betriebszustand: 23=active solar, 21=standby) → ignored
+    static const char *const RPS4_FIELD_NAMES[] = {"DeltaT", "Zust"};
+    for (uint8_t i = MIN_FIELDS; i < token_count; i++) {
+      const char *name = (i - MIN_FIELDS < 2) ? RPS4_FIELD_NAMES[i - MIN_FIELDS] : "?";
+      const bool ignored = (i > MIN_FIELDS);
+      ESP_LOGD(TAG, "RPS4 extra Token[%u] (%s) = %d%s", i, name, int_values[i], ignored ? " (ignored)" : "");
+    }
+  }
   #endif
 }
 
@@ -299,13 +317,14 @@ void DaikinRotexSolarisComponent::invalidate_all_sensors_() {
   if (solaris_ts_sensor_)  solaris_ts_sensor_->publish_state(NAN);
   if (solaris_tv_sensor_)  solaris_tv_sensor_->publish_state(NAN);
   if (solaris_df_sensor_)  solaris_df_sensor_->publish_state(NAN);
-  if (solaris_pwr_sensor_) solaris_pwr_sensor_->publish_state(NAN);
+  if (solaris_pwr_sensor_)    solaris_pwr_sensor_->publish_state(NAN);
+  if (solaris_deltat_sensor_) solaris_deltat_sensor_->publish_state(NAN);
   if (solaris_errcode_sensor_) solaris_errcode_sensor_->publish_state("X");
   if (solaris_errdesc_sensor_) solaris_errdesc_sensor_->publish_state(get_error_text_('X'));
 }
 
 void DaikinRotexSolarisComponent::publish_values_(const int int_values[],
-  float solaris_df, char error_code) {
+  float solaris_df, char error_code, uint8_t token_count) {
   // ========================================================================
   // PUBLISH BINARY SENSORS - on/off states (true/false)
   // ========================================================================
@@ -372,6 +391,38 @@ void DaikinRotexSolarisComponent::publish_values_(const int int_values[],
     float solaris_pwr_kw = int_values[SOLARIS_PWR] / 1000.0f;
     solaris_pwr_kw = roundf(solaris_pwr_kw * 100.0f) / 100.0f;  // Round to 2 decimals: multiply, round, divide
     solaris_pwr_sensor_->publish_state(solaris_pwr_kw);
+  }
+
+  // ========================================================================
+  // PUBLISH DELTA-T SENSOR - TV−TR differential (Sollspreizung)
+  // RPS4: use reported DeltaT field directly (always valid).
+  // RPS3: derive from TV−TR, but only when P1 is running, P2 is off, AND
+  //       at least 20 s have elapsed since P2 turned off (hold-off for flow
+  //       stabilisation after booster pump shutdown). Outside that condition
+  //       publish 0.
+  // ========================================================================
+  if (solaris_deltat_sensor_) {
+    int deltat;
+    if (token_count > MIN_FIELDS) {
+      deltat = int_values[SOLARIS_DT];
+    } else {
+      const bool p2_on = (int_values[SOLARIS_P2] != 0);
+      if (p2_on) {
+        p2_off_time_ = 0;  // reset — P2 is running, hold-off not started
+      } else if (p2_off_time_ == 0) {
+        p2_off_time_ = millis();  // P2 just turned off — start hold-off timer
+      }
+
+      const bool p1_running = (int_values[SOLARIS_P1] > 0);
+      const bool held_off = (p2_off_time_ == 0) || ((millis() - p2_off_time_) < 20000);
+      if (p1_running && !p2_on && !held_off) {
+        deltat = int_values[SOLARIS_TV] - int_values[SOLARIS_TR];
+        if (deltat < 0) deltat = 0;
+      } else {
+        deltat = 0;
+      }
+    }
+    solaris_deltat_sensor_->publish_state(deltat);
   }
 
   // ========================================================================

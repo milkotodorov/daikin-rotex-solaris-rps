@@ -106,28 +106,28 @@ daikin_rotex_solaris:
   solaris_ha:
     id: solaris_ha
     web_server:
-      sorting_weight: 9
+      sorting_weight: 10
 
   # Brennerkontakt (Burner contact) (on/off)
   solaris_bk:
     id: solaris_bk
     web_server:
-      sorting_weight: 10     
-  
+      sorting_weight: 11
+
   # Pumpe (P1) (0-100 %)
   solaris_p1:
     id: solaris_p1
     filters:
       - throttle: 10s
     web_server:
-      sorting_weight: 7
+      sorting_weight: 8
 
   # Comment out the booster pump sensor for ROTEX Solaris RPS4, as it has no such pump
   # Boosterpumpe (Booster pump) (on/off)
   solaris_p2:
     id: solaris_p2
     web_server:
-      sorting_weight: 8
+      sorting_weight: 9
 
   # Kollektortemperatur (Collector temperature) (-55-250 °C)
   solaris_tk:
@@ -161,19 +161,28 @@ daikin_rotex_solaris:
     web_server:
       sorting_weight: 4
 
+  # Sollspreizung (Target spread / DeltaT) °C
+  # RPS4: reported directly by controller; RPS3: calculated as TV−TR
+  solaris_deltat:
+    id: solaris_deltat
+    filters:
+      - throttle: 10s
+    web_server:
+      sorting_weight: 5
+
   # Durchfluss (Flow rate) (0-20 l/min)
   solaris_df:
     id: solaris_df
     filters:
       - throttle: 10s
     web_server:
-      sorting_weight: 5
+      sorting_weight: 6
 
   # Error code sensor (raw single-character code: '', K, R, S, D, V, G, F, W)
   solaris_errcode:
     id: solaris_errcode
     web_server:
-      sorting_weight: 11
+      sorting_weight: 12
 
   # Error description sensor (localized full text for the error code)
   #   'K': Kollektortemperatur
@@ -186,7 +195,7 @@ daikin_rotex_solaris:
   solaris_errdesc:
     id: solaris_errdesc
     web_server:
-      sorting_weight: 12
+      sorting_weight: 13
 
   # Leistung (Power) kW
   solaris_pwr:
@@ -194,7 +203,7 @@ daikin_rotex_solaris:
     filters:
       - throttle: 10s
     web_server:
-      sorting_weight: 6
+      sorting_weight: 7
 
   # Source code git hash (component version)
   git_hash:

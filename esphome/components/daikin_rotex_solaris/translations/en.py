@@ -11,6 +11,7 @@ SENSOR_NAMES_EN ={
     "solaris_p2": "Booster Pump",
     "solaris_errcode": "Error Code",
     "solaris_errdesc": "Error Description",
+    "solaris_deltat": "Target Spread",
 }
 
 ERROR_CODES_EN ={

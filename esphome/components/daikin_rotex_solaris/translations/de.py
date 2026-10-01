@@ -11,6 +11,7 @@ SENSOR_NAMES_DE = {
     "solaris_p2": "Boosterpumpe",
     "solaris_errcode": "Fehlercode",
     "solaris_errdesc": "Fehlerbeschreibung",
+    "solaris_deltat": "Sollspreizung",
 }
 
 ERROR_CODES_DE = {
