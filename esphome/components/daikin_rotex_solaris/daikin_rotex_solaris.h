@@ -20,6 +20,15 @@ static constexpr uint8_t MAX_LINE_LEN = 48;            // Maximum valid line len
 static constexpr uint32_t LINE_TIMEOUT_MS = 5000;      // Used for clearing buffer
 static constexpr uint32_t OFFLINE_TIMEOUT_MS = 90000;  // Used for detecting Solaris RPS offline/unavailable state (90s of no data)
 
+// ============================================================================
+// Tz ACCUMULATOR CONSTANTS
+// ============================================================================
+static constexpr uint32_t OFF_BASELINE_HOLD_MS = 180000; // Tz automation 1: 3-min off-state hold before snapping baseline
+static constexpr uint32_t RISE_HOLD_MS = 90000;          // Tz automation 2: 90s rise hold before counting
+static constexpr uint32_t DROP_HOLD_MS = 90000;          // Tz automation 3: 90s drop hold before lowering baseline
+static constexpr float    TZ_POWER_ON_KW = 0.01f;        // P > 0.01 kW => solar running
+static constexpr int      TZ_RISE_CAP = 2;               // Max countable rise per hold (stale-baseline safety net)
+
 // Boot/Info lines sent by Solaris RPS on startup - the first words for each line
 static constexpr char BOOT_LINE1[] = "SOLARIS";
 static constexpr char BOOT_LINE2[] = "Zyklus";
@@ -81,6 +90,10 @@ class DaikinRotexSolarisComponent : public Component, public uart::UARTDevice {
     void set_solaris_df_sensor(sensor::Sensor *s) { solaris_df_sensor_ = s; }
     void set_solaris_pwr_sensor(sensor::Sensor *s) { solaris_pwr_sensor_ = s; }
     void set_solaris_deltat_sensor(sensor::Sensor *s) { solaris_deltat_sensor_ = s; }
+    void set_solaris_tz_sensor(sensor::Sensor *s) { solaris_tz_sensor_ = s; }
+
+    void reset_tz_daily();          // Called from YAML on_time: at 00:00:00
+    void set_tz_acc(int v);         // Called from YAML api: services: to manually restore Tz after reboot
 
     // Binary sensors (on/off states)
     void set_solaris_ha_sensor(binary_sensor::BinarySensor *s) { solaris_ha_sensor_ = s; }
@@ -126,6 +139,7 @@ class DaikinRotexSolarisComponent : public Component, public uart::UARTDevice {
     sensor::Sensor *solaris_df_sensor_{nullptr};
     sensor::Sensor *solaris_pwr_sensor_{nullptr};
     sensor::Sensor *solaris_deltat_sensor_{nullptr};
+    sensor::Sensor *solaris_tz_sensor_{nullptr};  // Daily solar storage temp gain (Tz, °C)
 
     // Binary sensors (on/off states)
     binary_sensor::BinarySensor *solaris_ha_sensor_{nullptr};
@@ -147,6 +161,16 @@ class DaikinRotexSolarisComponent : public Component, public uart::UARTDevice {
     uint8_t buffer_idx_{0};         // Current write position in buffer
     uint32_t last_char_time_{0};    // Timestamp of last received character (used for timeout)
     uint32_t p2_off_time_{0};       // Timestamp when P2 last turned off (RPS3 DeltaT hold-off)
+
+    // ========================================================================
+    // Tz ACCUMULATOR STATE — ports 4 HA automations + 2 input_number helpers
+    // ========================================================================
+    int      tz_acc_{0};                    // Published Tz (whole °C, accumulated since midnight)
+    int      last_ts_{0};                   // Reference baseline temperature (whole °C)
+    uint32_t off_since_{0};                 // Automation 1 hold timer (0 = not holding)
+    uint32_t rise_since_{0};                // Automation 2 hold timer
+    uint32_t drop_since_{0};                // Automation 3 hold timer
+    bool     tz_rebaseline_pending_{false}; // midnight/offline => next reading re-anchors last_ts_
 
     // ========================================================================
     // REUSABLE TEMPORARY BUFFERS

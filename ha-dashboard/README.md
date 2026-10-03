@@ -73,7 +73,7 @@ Das Dashboard zeigt drei Elemente für abgeleitete Tagesstatistiken, die der Con
 
 - **Te** (Tagesertrag) — gesamter solarer Energieertrag heute, in kWh. Wird um Mitternacht auf 0 zurückgesetzt.
 - **Vt** (Volumen Tag) — gesamtes heute gepumptes Wasservolumen, in Litern. Wird um Mitternacht auf 0 zurückgesetzt.
-- **Tz** (Temperaturzuwachs) — Speichertemperaturanstieg, der ausschließlich auf die solare Erwärmung zurückzuführen ist, in °C. Wird um Mitternacht auf 0 zurückgesetzt.
+- **Tz** (Tagesspeicherzuwachstemperatur) — Speichertemperaturanstieg, der ausschließlich auf die solare Erwärmung zurückzuführen ist, in °C. Wird um Mitternacht auf 0 zurückgesetzt.
 
 Ersetzen Sie `esp_rotex_solaris_rps3` überall durch Ihren tatsächlichen ESPHome-Gerätenamen. HA-erstellte Helfer-Entitäts-IDs können je nach Gerätezuweisung auch ein Bereichspräfix enthalten — prüfen Sie die tatsächlichen Entitäts-IDs unter **Entwicklerwerkzeuge → Zustände** und aktualisieren Sie `solaris-rps-dashboard.yaml` entsprechend.
 
@@ -101,7 +101,7 @@ Die tägliche akkumulierte Energie in kWh aus einem Leistungssensor (kW) mit aut
 
 > Die linksseitige Riemann-Summe verhindert künstliche Spitzen durch schwankende Solarleistungswerte.
 
-**Ergebnis-Entität:** `sensor.rotex_solaris_rps_leistung_total`
+**Ergebnis-Entität:** `sensor.rotex_solaris_rps3_leistung_total`
 
 #### Schritt 2 — Verbrauchszähler (täglicher Reset)
 
@@ -110,11 +110,11 @@ Die tägliche akkumulierte Energie in kWh aus einem Leistungssensor (kW) mit aut
 | Feld | Wert |
 |------|------|
 | Name | `ROTEX Solaris RPS Leistung Tagesertrag` |
-| Eingangssensor | `sensor.rotex_solaris_rps_leistung_total` |
+| Eingangssensor | `sensor.rotex_solaris_rps3_leistung_total` |
 | Rückstellzyklus | Täglich |
 | Genauigkeit | 2 |
 
-**Ergebnis-Entität:** `sensor.rotex_solaris_rps_leistung_tagesertrag`
+**Ergebnis-Entität:** `sensor.rotex_solaris_rps3_leistung_tagesertrag`
 
 ---
 
@@ -135,7 +135,7 @@ Erfasst die gesamten pro Tag gepumpten Liter. Durchfluss wird in `l/min` gemesse
 | Integrationszeit | Minuten |
 | Genauigkeit | 1 |
 
-**Ergebnis-Entität:** `sensor.rotex_solaris_rps_durchfluss_total`
+**Ergebnis-Entität:** `sensor.rotex_solaris_rps3_durchfluss_total`
 
 #### Schritt 2 — Verbrauchszähler (täglicher Reset)
 
@@ -144,169 +144,23 @@ Erfasst die gesamten pro Tag gepumpten Liter. Durchfluss wird in `l/min` gemesse
 | Feld | Wert |
 |------|------|
 | Name | `ROTEX Solaris RPS Durchfluss Tagesertrag` |
-| Eingangssensor | `sensor.rotex_solaris_rps_durchfluss_total` |
+| Eingangssensor | `sensor.rotex_solaris_rps3_durchfluss_total` |
 | Rückstellzyklus | Täglich |
 | Genauigkeit | 0 |
 
-**Ergebnis-Entität:** `sensor.rotex_solaris_rps_durchfluss_tagesertrag`
+**Ergebnis-Entität:** `sensor.rotex_solaris_rps3_durchfluss_tagesertrag`
 
 > Das Dashboard zeigt diesen Wert im SVG-Element `df_day_val` (nicht `vt_val`) — die Beschriftung „Vt" ist statischer Text.
 
 ---
 
-### Tz — Solarer Temperaturzuwachs im Speicher
+### Tz — Tagesspeicherzuwachstemperatur
 
-Tz zählt einfach, um wie viele Grad die Speichertemperatur (Ts) heute gestiegen ist, während die Solarpumpe lief. Immer wenn Ts steigt und oben bleibt, wird der Anstieg zum Zähler addiert. Rückgänge (durch Warmwasserentnahme oder Sensorrauschen) werden ignoriert — nach einem Rückgang wird ab der neuen niedrigeren Temperatur einfach weitergezählt. Der Zähler wird um Mitternacht zurückgesetzt.
+Tz wird direkt in der Firmware berechnet und als `sensor.esp_rotex_solaris_rps3_tagesspeicherzuwachstemperatur` bereitgestellt (der Entitätsname richtet sich nach der konfigurierten `language:`). Es sind keine HA-Helfer oder Automationen erforderlich.
 
-**Logik:**
-- `last_ts` speichert die Referenztemperatur, ab der der nächste Anstieg gemessen wird.
-- Während der Solarbetrieb **aus** ist (P ≤ 0,01 kW): `last_ts` an den aktuellen Ts-Wert koppeln, jedoch erst nachdem Ts oder P für **3 Minuten** stabil im Aus-Zustand geblieben ist. Die 3-Minuten-Haltezeit verhindert, dass kurze Pumpenzyklusunterbrechungen (typischerweise < 3 Min.) `last_ts` auf einen Ts-Wert setzen, der während der Unterbrechung gestiegen ist — was diesen Anstieg still absorbieren und nie zählen würde. Nach einer echten Solarpause (Nachheizkessel, Nacht) läuft die 3-Minuten-Haltezeit ab und `last_ts` wird korrekt aktualisiert, sodass nur echte solare Erwärmung nach dem Start gezählt wird.
-- Wenn Ts über `last_ts` steigt **und 90 s dort bleibt** während P > 0,01 kW: `(Ts − last_ts)` zu Tz addieren, dann `last_ts = Ts` setzen. Die 90-s-Haltezeit filtert vorübergehendes ±1 °C Sensorrauschen — ein einzelner Fehlwert kehrt vor Ablauf der Haltezeit zurück, während echte solare Erwärmung bestehen bleibt. Als Sicherheitsnetz: übersteigt der scheinbare Anstieg 2 °C (für echte Erwärmung innerhalb eines 90-s-Fensters unmöglich — passiert nur, wenn `last_ts` durch einen Neustart veraltet ist), wird `last_ts` neu gesetzt statt gezählt.
-- Wenn Ts unter `last_ts` fällt **und 90 s dort bleibt**: `last_ts` auf den aktuellen Ts-Wert senken. Das addiert keinen Gewinn, sodass eine Warmwasserentnahme nie gegen Sie zählt — der nächste echte Anstieg wird einfach ab dem niedrigeren Wert gezählt. Die 90-s-Haltezeit verhindert außerdem, dass `last_ts` vorübergehenden ±1 °C Rausch-Einbrüchen hinterherläuft: ein Ausschlag, der innerhalb von 90 s zurückkehrt, lässt `last_ts` unverändert, sodass eine schnelle ±1 °C Oszillation auf beiden Flanken vollständig ignoriert wird und Tz nie aufbläht.
-- Um Mitternacht: Tz auf 0 zurücksetzen und `last_ts` auf den aktuellen Ts-Wert setzen.
-
-Da Ts nur in ganzen Grad gemeldet wird, ist Tz immer eine ganze Zahl. Alle Helfer sind `input_number`-Entitäten, die Home Assistant über Neustarts hinweg wiederherstellt — ein Neustart von HA oder des ESPHome-Geräts mitten am Tag setzt die Zählung dort fort, wo sie unterbrochen wurde (siehe Hinweise nach den Automationen).
-
-#### Schritt 1 — Helfer
-
-Gehen Sie zu **Einstellungen → Geräte & Dienste → Helfer → Helfer erstellen → Zahl** und erstellen Sie zwei Helfer:
-
-| Name | Min | Max | Schritt | Einheit | Modus |
-|------|-----|-----|---------|---------|-------|
-| `ROTEX Solaris RPS Temperaturzuwachs` | 0 | 60 | 1 | °C | Eingabefeld |
-| `ROTEX Solaris RPS Tz Last Ts` | 0 | 85 | 1 | °C | Eingabefeld |
-
-#### Schritt 2 — Automationen
-
-Importieren Sie jede Automation einzeln über **Einstellungen → Automationen → ⋮ → YAML importieren**.
-
-```yaml
-alias: "ROTEX Solaris RPS Tz - baseline while off"
-description: "While solar is off (P ≤ 0.01 kW), keep last_ts glued to the current Ts after a 3-minute hold, so short pump-cycling gaps do not absorb Ts rises that should be counted."
-mode: restart
-triggers:
-  - trigger: state
-    entity_id: sensor.esp_rotex_solaris_rps3_speichertemperatur
-    for: "00:03:00"
-  - trigger: numeric_state
-    entity_id: sensor.esp_rotex_solaris_rps3_leistung
-    below: 0.01
-    for: "00:03:00"
-conditions:
-  - condition: template
-    value_template: >
-      {{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') not in ['unknown', 'unavailable'] }}
-  - condition: numeric_state
-    entity_id: sensor.esp_rotex_solaris_rps3_leistung
-    below: 0.01
-  - condition: template
-    value_template: >
-      {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float %}
-      {% set last = states('input_number.rotex_solaris_rps_tz_last_ts') | float %}
-      {{ ts != last }}
-actions:
-  - action: input_number.set_value
-    target:
-      entity_id: input_number.rotex_solaris_rps_tz_last_ts
-    data:
-      value: "{{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float }}"
-```
-
-```yaml
-alias: "ROTEX Solaris RPS Tz - count rise"
-description: "While solar runs (P > 0.01 kW), when Ts rises above last_ts and holds for 90s, add the rise to Tz. The 90s hold rejects transient ±1 °C sensor noise."
-mode: restart
-triggers:
-  - trigger: template
-    value_template: >
-      {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float(0) %}
-      {% set last = states('input_number.rotex_solaris_rps_tz_last_ts') | float(0) %}
-      {{ ts > last }}
-    for: "00:01:30"
-conditions:
-  - condition: template
-    value_template: >
-      {{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') not in ['unknown', 'unavailable'] }}
-  - condition: numeric_state
-    entity_id: sensor.esp_rotex_solaris_rps3_leistung
-    above: 0.01
-  - condition: template
-    value_template: >
-      {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float %}
-      {% set last = states('input_number.rotex_solaris_rps_tz_last_ts') | float %}
-      {{ ts > last }}
-actions:
-  - action: input_number.set_value
-    target:
-      entity_id: input_number.rotex_solaris_rps_temperaturzuwachs
-    data:
-      value: >
-        {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float %}
-        {% set last = states('input_number.rotex_solaris_rps_tz_last_ts') | float %}
-        {% set tz = states('input_number.rotex_solaris_rps_temperaturzuwachs') | float %}
-        {% set rise = ts - last %}
-        {{ (tz + rise) | round(0) | int if 0 < rise <= 2 else tz | round(0) | int }}
-  - action: input_number.set_value
-    target:
-      entity_id: input_number.rotex_solaris_rps_tz_last_ts
-    data:
-      value: "{{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float }}"
-```
-
-```yaml
-alias: "ROTEX Solaris RPS Tz - track drop"
-description: "When Ts drops below last_ts and stays down for 90s, lower last_ts to the current Ts so the next rise is counted from there. Adds no gain. The 90s hold stops last_ts from chasing transient ±1 °C noise dips."
-mode: restart
-triggers:
-  - trigger: template
-    value_template: >
-      {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float(999) %}
-      {% set last = states('input_number.rotex_solaris_rps_tz_last_ts') | float(0) %}
-      {{ ts < last }}
-    for: "00:01:30"
-conditions:
-  - condition: template
-    value_template: >
-      {{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') not in ['unknown', 'unavailable'] }}
-  - condition: template
-    value_template: >
-      {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float(999) %}
-      {% set last = states('input_number.rotex_solaris_rps_tz_last_ts') | float(0) %}
-      {{ ts < last }}
-actions:
-  - action: input_number.set_value
-    target:
-      entity_id: input_number.rotex_solaris_rps_tz_last_ts
-    data:
-      value: "{{ states('sensor.esp_rotex_solaris_rps3_speichertemperatur') | float }}"
-```
-
-```yaml
-alias: "ROTEX Solaris RPS Tz - midnight reset"
-description: "At 00:00 reset Tz to 0 and re-baseline last_ts to the current Ts for the new day"
-triggers:
-  - trigger: time
-    at: "00:00:00"
-conditions: []
-actions:
-  - action: input_number.set_value
-    target:
-      entity_id: input_number.rotex_solaris_rps_temperaturzuwachs
-    data:
-      value: 0
-  - action: input_number.set_value
-    target:
-      entity_id: input_number.rotex_solaris_rps_tz_last_ts
-    data:
-      value: >
-        {% set ts = states('sensor.esp_rotex_solaris_rps3_speichertemperatur') %}
-        {{ ts | float if ts not in ['unknown', 'unavailable'] else states('input_number.rotex_solaris_rps_tz_last_ts') | float }}
-```
-
-**Ergebnis-Entität:** `input_number.rotex_solaris_rps_temperaturzuwachs`
+Die Firmware summiert ganzzahlige Ts-Anstiege während des Solarbetriebs (P > 0,01 kW) und setzt den Wert um Mitternacht auf 0 zurück. Rauschen und Warmwasserentnahmen werden mit 90-s-Haltezeiten gefiltert; kurze Pumpenzykluslücken werden mit einer 3-Minuten-Haltezeit im Aus-Betrieb behandelt. Die vollständige Logikbeschreibung findet sich in `AGENTS.md`.
 
 > [!NOTE]
-> **Verhalten bei Neustart.** Alle vier Zustandswerte liegen in `input_number`-Helfern, die Home Assistant über Neustarts hinweg wiederherstellt, sodass ein Neustart mitten am Tag die Zählung dort fortsetzt, wo sie aufgehört hat.
-> - **HA-Neustart bei laufendem Solarbetrieb:** Helfer werden wiederhergestellt; höchstens ~1 °C kann während der wenigen Sekunden Ausfall verpasst werden. Falls ein Helfer je auf einen veralteten/niedrigen Wert wiederhergestellt wird, setzt das 2-°C-Sicherheitsnetz von „count rise" neu, statt einen Phantom-Sprung zu zählen.
-> - **Neustart des ESPHome-Geräts:** Ts und P lesen kurz `unavailable`. Jede Automation prüft auf `unavailable` und überspringt es, die 90-s-Haltezeiten überdauern die wenige Sekunden dauernde Wiederverbindung, und die 3-Minuten-Haltezeit von „baseline while off" verhindert, dass die kurze Wiederverbindungsunterbrechung eine vorzeitige Neuausrichtung auslöst — es entsteht keine fehlerhafte Zählung.
-> - **Erstinstallation / Helfer nie gesetzt:** Helfer anlegen, dann 3 Minuten bei ausgeschaltetem Solarbetrieb warten — die Automation „baseline while off" setzt `last_ts` nach Ablauf der Haltezeit auf den aktuellen Ts. In beiden Fällen wird kein Phantom-Gewinn gezählt.
+> **ESP-Neustart:** Der Akkumulator liegt im RAM, daher setzt ein ESP-Neustart den tagesaktuellen Tz-Wert auf 0 zurück. Neustarts sind selten, und das Design verzichtet bewusst auf eine NVS-Flash-Persistenz, um Flash-Verschleiß zu vermeiden. Vergangene Tageswerte bleiben stets über HA-Langzeitstatistiken erhalten (`state_class: total_increasing`).
+>
+> Um den tagesaktuellen Wert nach einem Neustart wiederherzustellen, die ESPHome-Aktion **`esphome.esp_rotex_solaris_rps3_set_tz`** aufrufen (HA → Entwicklerwerkzeuge → Aktionen). Den zuletzt bekannten Tz-Wert als `value` (Ganzzahl, 0–100) übergeben. Der ESP setzt seinen internen Akkumulator auf diesen Wert und zählt von dort weiter – es wird keine HA-Entität erstellt und kein Flash beschrieben.

@@ -2,3 +2,4 @@
 *.bkp
 *.log
 venv/
+__pycache__/

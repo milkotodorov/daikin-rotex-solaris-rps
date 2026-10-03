@@ -33,6 +33,15 @@ api:
   encryption:
     key: !secret solaris_encryption_key
   reboot_timeout: 0s  # Default 15min
+  actions:
+    # Manually restore the Tz accumulator after an ESP reboot (value: 0–100 °C).
+    # Call from HA Developer Tools → Actions as:
+    #   esphome.esp_rotex_solaris_rps3_set_tz  value: <last known Tz>
+    - action: set_tz
+      variables:
+        value: int
+      then:
+        - lambda: 'id(daikin_rotex_solaris_component)->set_tz_acc(value);'
 
 # Enable OTA Updates
 ota:
@@ -61,6 +70,12 @@ captive_portal:
 # Set up Home Assistant time platform
 time:
   - platform: homeassistant
+    on_time:
+      - seconds: 0
+        minutes: 0
+        hours: 0
+        then:
+          - lambda: 'id(daikin_rotex_solaris_component)->reset_tz_daily();'
 
 # ============================================================================
 # WEB INTERFACE
@@ -106,13 +121,13 @@ daikin_rotex_solaris:
   solaris_ha:
     id: solaris_ha
     web_server:
-      sorting_weight: 10
+      sorting_weight: 11
 
   # Brennerkontakt (Burner contact) (on/off)
   solaris_bk:
     id: solaris_bk
     web_server:
-      sorting_weight: 11
+      sorting_weight: 12
 
   # Pumpe (P1) (0-100 %)
   solaris_p1:
@@ -120,14 +135,14 @@ daikin_rotex_solaris:
     filters:
       - throttle: 10s
     web_server:
-      sorting_weight: 8
+      sorting_weight: 9
 
   # Comment out the booster pump sensor for ROTEX Solaris RPS4, as it has no such pump
   # Boosterpumpe (Booster pump) (on/off)
   solaris_p2:
     id: solaris_p2
     web_server:
-      sorting_weight: 9
+      sorting_weight: 10
 
   # Kollektortemperatur (Collector temperature) (-55-250 °C)
   solaris_tk:
@@ -161,8 +176,9 @@ daikin_rotex_solaris:
     web_server:
       sorting_weight: 4
 
-  # Sollspreizung (Target spread / DeltaT) °C
-  # RPS4: reported directly by controller; RPS3: calculated as TV−TR
+  # Spreizung (Temperature differential TV−TR) °C
+  # RPS4: controller-reported Sollspreizung (calculated target DT from T_K curve)
+  # RPS3: Istspreizung derived as TV−TR (measured actual, not the target)
   solaris_deltat:
     id: solaris_deltat
     filters:
@@ -170,19 +186,27 @@ daikin_rotex_solaris:
     web_server:
       sorting_weight: 5
 
+  # Tagesspeicherzuwachstemperatur (Solar storage temp gain, Tz) °C
+  # Computed in firmware; resets to 0 at midnight via the time: on_time above.
+  # Resumes from 0 on ESP reboot (current-day partial count is lost).
+  solaris_tz:
+    id: solaris_tz
+    web_server:
+      sorting_weight: 6
+
   # Durchfluss (Flow rate) (0-20 l/min)
   solaris_df:
     id: solaris_df
     filters:
       - throttle: 10s
     web_server:
-      sorting_weight: 6
+      sorting_weight: 7
 
   # Error code sensor (raw single-character code: '', K, R, S, D, V, G, F, W)
   solaris_errcode:
     id: solaris_errcode
     web_server:
-      sorting_weight: 12
+      sorting_weight: 13
 
   # Error description sensor (localized full text for the error code)
   #   'K': Kollektortemperatur
@@ -195,7 +219,7 @@ daikin_rotex_solaris:
   solaris_errdesc:
     id: solaris_errdesc
     web_server:
-      sorting_weight: 13
+      sorting_weight: 14
 
   # Leistung (Power) kW
   solaris_pwr:
@@ -203,14 +227,14 @@ daikin_rotex_solaris:
     filters:
       - throttle: 10s
     web_server:
-      sorting_weight: 7
+      sorting_weight: 8
 
   # Source code git hash (component version)
   git_hash:
     id: solaris_git_hash
     name: "Git Hash"
     web_server:
-      sorting_weight: 71
+      sorting_weight: 70
 
 # ============================================================================
 # DEBUGGING & MONITORING
@@ -263,12 +287,12 @@ text_sensor:
       name: "Device Info"
       internal: true  # Only for WebUI, not exposed to the HA
       web_server:
-        sorting_weight: 70
+        sorting_weight: 69
     reset_reason:
       name: "Reset Reason"
       icon: "mdi:restart"
       web_server:
-        sorting_weight: 69
+        sorting_weight: 68
 
   - platform: wifi_info
     ip_address:

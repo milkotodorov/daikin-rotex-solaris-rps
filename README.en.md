@@ -104,10 +104,10 @@ After you are logged as technical user with the code, go to `System` -> `Data ou
 | V       | Flow Rate (l/min)                                                                             | 9         | float  |
 | Err     | Error Status (''/K/R/S/V/D/G/F/W)                                                             | 10        | string |
 | P       | Power (Watt)                                                                                  | 11        | int    |
-| DeltaT¹ | Target spread — target temperature differential TV−TR during modulated operation (calculated) | 12        | int    |
+| DeltaT¹ | Spread — TV−TR temperature differential (RPS4: Sollspreizung, calculated target; RPS3: Istspreizung, measured TV−TR) | 12        | int    |
 | Zust²   | Operating state: 23 = active solar operation, 21 = standby / no active solar operation        | 13        | int    |
 
-¹ RPS4 only — published as `solaris_deltat`; on RPS3 TV−TR is calculated and published instead.
+¹ Published as `solaris_deltat`. RPS4: Sollspreizung (controller-calculated target DT from the T_K curve). RPS3: Istspreizung (measured TV−TR, as the calculated target is not transmitted).
 ² RPS4 only — received and logged by the component but not published as a HA sensor.
 
 Error status:

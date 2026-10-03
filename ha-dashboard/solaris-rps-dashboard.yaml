@@ -51,7 +51,7 @@ cards:
               service_data:
                 text: P2
 
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: p2_txt
           tap_action: none
           state_action:
@@ -59,7 +59,7 @@ cards:
               service_data:
                 class: '${entity.state === "F" || entity.state === "W" ? "txt-error-red txt-large txt-bold blink non-clickable" : "txt-blue txt-large txt-bold non-clickable"}'
 
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: p2_val
           tap_action: none
           state_action:
@@ -115,7 +115,7 @@ cards:
               service_data:
                 text: Tk
 
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: tk_txt
           tap_action: none
           state_action:
@@ -129,7 +129,7 @@ cards:
           state_action:
             - service: floorplan.class_set
               service_data:
-                class: '${states["sensor.rotex_solaris_rps3_fehlercode"].state === "K" && parseInt(entity.state) <= 98 ? "txt-error-red txt-large txt-bold blink non-clickable" : "txt-red txt-large txt-bold non-clickable"}'
+                class: '${states["sensor.esp_rotex_solaris_rps3_fehlercode"].state === "K" && parseInt(entity.state) <= 98 ? "txt-error-red txt-large txt-bold blink non-clickable" : "txt-red txt-large txt-bold non-clickable"}'
 
         - entity: sensor.esp_rotex_solaris_rps3_kollektortemperatur
           element: tk_val
@@ -138,7 +138,7 @@ cards:
               service_data:
                 text: '${entity.state === "unknown" || entity.state === "unavailable" ? "N/A" : parseInt(entity.state) + " °C"}'
 
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: tk_val
           tap_action: none
           state_action:
@@ -151,7 +151,7 @@ cards:
           state_action:
             - service: floorplan.class_set
               service_data:
-                class: '${states["sensor.rotex_solaris_rps3_fehlercode"].state === "K" && parseInt(entity.state) > 98 ? "txt-red txt-medium txt-bold blink" : states["sensor.rotex_solaris_rps3_fehlercode"].state === "K" && parseInt(entity.state) <= 98 ? "txt-error-red txt-medium txt-bold blink" : entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : parseInt(entity.state) > 98 ? "txt-red txt-medium txt-bold blink" : "txt-red txt-medium txt-bold"}'
+                class: '${states["sensor.esp_rotex_solaris_rps3_fehlercode"].state === "K" && parseInt(entity.state) > 98 ? "txt-red txt-medium txt-bold blink" : states["sensor.esp_rotex_solaris_rps3_fehlercode"].state === "K" && parseInt(entity.state) <= 98 ? "txt-error-red txt-medium txt-bold blink" : entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : parseInt(entity.state) > 98 ? "txt-red txt-medium txt-bold blink" : "txt-red txt-medium txt-bold"}'
 
         # DF - Flow rate (Durchfluss)
         - element: df_txt
@@ -160,7 +160,7 @@ cards:
               service_data:
                 text: V
 
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: df_txt
           tap_action: none
           state_action:
@@ -168,7 +168,7 @@ cards:
               service_data:
                 class: '${entity.state === "D" ? "txt-error-red txt-large txt-bold blink non-clickable" : "txt-blue txt-large txt-bold non-clickable"}'
 
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: df_val
           tap_action: none
           state_action:
@@ -186,7 +186,7 @@ cards:
               service_data:
                 class: '${entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : "txt-blue txt-medium txt-bold"}'
 
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: df_day_val
           tap_action: none
           state_action:
@@ -211,7 +211,7 @@ cards:
               service_data:
                 text: Tv
 
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: tv_txt
           tap_action: none
           state_action:
@@ -219,7 +219,7 @@ cards:
               service_data:
                 class: '${entity.state === "V" ? "txt-error-red txt-large txt-bold blink non-clickable" : "txt-blue txt-large txt-bold non-clickable"}'
 
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: tv_val
           tap_action: none
           state_action:
@@ -238,7 +238,9 @@ cards:
                 class: '${entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : "txt-blue txt-medium txt-bold"}'
 
         # DeltaT - Target spread (Sollspreizung)
-        # RPS3: derived as TV−TR (clamped to 0); RPS4: reported directly by controller
+        # RPS3: derived as TV−TR (clamped to 0), per ROTEX manual DeltaT is counted once P1 starts
+        #        modulation; P1 begins modulating ~30 s after P2 (booster pump) shuts off (experimental)
+        # RPS4: reported directly by controller
         - element: deltat_txt
           state_action:
             - service: floorplan.text_set
@@ -248,7 +250,7 @@ cards:
               service_data:
                 class: txt-blue txt-large txt-bold non-clickable
 
-        - entity: sensor.esp_rotex_solaris_rps3_sollspreizung
+        - entity: sensor.esp_rotex_solaris_rps3_spreizung
           element: deltat_val
           state_action:
             - service: floorplan.text_set
@@ -271,7 +273,7 @@ cards:
               service_data:
                 text: Ts
 
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: ts_txt
           tap_action: none
           state_action:
@@ -285,7 +287,7 @@ cards:
           state_action:
             - service: floorplan.class_set
               service_data:
-                class: '${states["sensor.rotex_solaris_rps3_fehlercode"].state === "S" && parseInt(entity.state) < 63 ? "txt-error-red txt-large txt-bold blink non-clickable" : "txt-blue txt-large txt-bold non-clickable"}'
+                class: '${states["sensor.esp_rotex_solaris_rps3_fehlercode"].state === "S" && parseInt(entity.state) < 63 ? "txt-error-red txt-large txt-bold blink non-clickable" : "txt-blue txt-large txt-bold non-clickable"}'
 
         - entity: sensor.esp_rotex_solaris_rps3_speichertemperatur
           element: ts_val
@@ -294,7 +296,7 @@ cards:
               service_data:
                 text: '${entity.state === "unknown" || entity.state === "unavailable" ? "N/A" : parseInt(entity.state) + " °C"}'
 
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: ts_val
           tap_action: none
           state_action:
@@ -307,7 +309,7 @@ cards:
           state_action:
             - service: floorplan.class_set
               service_data:
-                class: '${parseInt(entity.state) >= 80 ? "txt-error-red txt-medium txt-bold blink" : parseInt(entity.state) >= 63 ? "txt-blue txt-medium txt-bold blink" : states["sensor.rotex_solaris_rps3_fehlercode"].state === "S" && parseInt(entity.state) < 63 ? "txt-error-red txt-medium txt-bold blink" : entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : "txt-blue txt-medium txt-bold"}'
+                class: '${parseInt(entity.state) >= 80 ? "txt-error-red txt-medium txt-bold blink" : parseInt(entity.state) >= 63 ? "txt-blue txt-medium txt-bold blink" : states["sensor.esp_rotex_solaris_rps3_fehlercode"].state === "S" && parseInt(entity.state) < 63 ? "txt-error-red txt-medium txt-bold blink" : entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : "txt-blue txt-medium txt-bold"}'
 
         # TR - Return temperature (Rücklauftemperatur)
         - element: tr_txt
@@ -316,7 +318,7 @@ cards:
               service_data:
                 text: Tr
 
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: tr_txt
           tap_action: none
           state_action:
@@ -324,7 +326,7 @@ cards:
               service_data:
                 class: '${entity.state === "R" ? "txt-error-red txt-large txt-bold blink non-clickable" : "txt-blue txt-large txt-bold non-clickable"}'
 
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: tr_val
           tap_action: none
           state_action:
@@ -378,7 +380,7 @@ cards:
               service_data:
                 class: '${entity.state === "on" ? "visible" : "hidden"}'
 
-        # Tz - Temperature gain (Temperaturzuwachs) — mapped to custom sensor in next iteration
+        # Tz - Tagesspeicherzuwachstemperatur (solar storage temperature gain)
         - element: tz_txt
           state_action:
             - service: floorplan.text_set
@@ -388,7 +390,7 @@ cards:
               service_data:
                 class: txt-orange txt-large txt-bold non-clickable
 
-        - entity: input_number.rotex_solaris_rps_temperaturzuwachs
+        - entity: sensor.esp_rotex_solaris_rps3_tagesspeicherzuwachstemperatur
           element: tz_val
           state_action:
             - service: floorplan.text_set
@@ -398,7 +400,7 @@ cards:
               service_data:
                 class: '${entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : "txt-orange txt-medium txt-bold"}'
 
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: tz_val
           tap_action: none
           state_action:
@@ -426,7 +428,7 @@ cards:
               service_data:
                 class: '${entity.state === "unknown" || entity.state === "unavailable" ? "txt-grey txt-medium txt-bold" : "txt-orange txt-medium txt-bold"}'
 
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: te_val
           tap_action: none
           state_action:
@@ -439,7 +441,7 @@ cards:
         # when there is no error. Language-independent: works with any firmware language setting.
         # "unknown" and "unavailable" are standard HA entity states (device unreachable / entity
         # not yet ready) — not firmware-emitted strings.
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: err_val
           state_action:
             - service: floorplan.text_set
@@ -449,7 +451,7 @@ cards:
               service_data:
                 class: '${entity.state === "unknown" || entity.state === "unavailable" || entity.state === "" ? "hidden" : "txt-error-red txt-large txt-bold blink visible"}'
 
-        - entity: sensor.rotex_solaris_rps3_fehlercode
+        - entity: sensor.esp_rotex_solaris_rps3_fehlercode
           element: cell-err_val
           state_action:
             - service: floorplan.class_set

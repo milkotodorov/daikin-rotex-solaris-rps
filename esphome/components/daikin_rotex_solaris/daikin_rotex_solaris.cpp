@@ -14,6 +14,7 @@ void DaikinRotexSolarisComponent::dump_config() {
   LOG_SENSOR("  ", "solaris_df", solaris_df_sensor_);
   LOG_SENSOR("  ", "solaris_pwr", solaris_pwr_sensor_);
   LOG_SENSOR("  ", "solaris_deltat", solaris_deltat_sensor_);
+  LOG_SENSOR("  ", "solaris_tz", solaris_tz_sensor_);
   LOG_SENSOR("  ", "solaris_p1", solaris_p1_sensor_);
   LOG_BINARY_SENSOR("  ", "solaris_p2", solaris_p2_sensor_);
   LOG_BINARY_SENSOR("  ", "solaris_ha", solaris_ha_sensor_);
@@ -74,6 +75,7 @@ void DaikinRotexSolarisComponent::loop() {
       "invalidates all sensors states and sets them to N/A",
       (unsigned)(OFFLINE_TIMEOUT_MS / 1000));
     invalidate_all_sensors_();
+    tz_rebaseline_pending_ = true;   // re-seed baseline on next valid reading (no over-count after a gap)
     last_char_time_ = now;
   }
 
@@ -319,8 +321,23 @@ void DaikinRotexSolarisComponent::invalidate_all_sensors_() {
   if (solaris_df_sensor_)  solaris_df_sensor_->publish_state(NAN);
   if (solaris_pwr_sensor_)    solaris_pwr_sensor_->publish_state(NAN);
   if (solaris_deltat_sensor_) solaris_deltat_sensor_->publish_state(NAN);
+  if (solaris_tz_sensor_)     solaris_tz_sensor_->publish_state(NAN);
   if (solaris_errcode_sensor_) solaris_errcode_sensor_->publish_state("X");
   if (solaris_errdesc_sensor_) solaris_errdesc_sensor_->publish_state(get_error_text_('X'));
+}
+
+void DaikinRotexSolarisComponent::reset_tz_daily() {
+  tz_acc_ = 0;
+  tz_rebaseline_pending_ = true;  // next reading sets last_ts_ = current Ts
+  if (solaris_tz_sensor_) solaris_tz_sensor_->publish_state(0);
+  ESP_LOGI(TAG, "Tz midnight reset: accumulator=0, baseline re-anchor pending");
+}
+
+void DaikinRotexSolarisComponent::set_tz_acc(int v) {
+  if (v < 0 || v > 100) return;
+  tz_acc_ = v;
+  if (solaris_tz_sensor_) solaris_tz_sensor_->publish_state(tz_acc_);
+  ESP_LOGI(TAG, "Tz manually set to %d °C", tz_acc_);
 }
 
 void DaikinRotexSolarisComponent::publish_values_(const int int_values[],
@@ -394,12 +411,74 @@ void DaikinRotexSolarisComponent::publish_values_(const int int_values[],
   }
 
   // ========================================================================
-  // PUBLISH DELTA-T SENSOR - TV−TR differential (Sollspreizung)
-  // RPS4: use reported DeltaT field directly (always valid).
-  // RPS3: derive from TV−TR, but only when P1 is running, P2 is off, AND
-  //       at least 20 s have elapsed since P2 turned off (hold-off for flow
-  //       stabilisation after booster pump shutdown). Outside that condition
-  //       publish 0.
+  // PUBLISH Tz SENSOR — daily accumulated storage-temperature gain (°C)
+  // tz_acc_ accumulates whole-degree Ts rises while solar runs; last_ts_ is
+  // the reference baseline. Three independent millis()-hold timers use the
+  // stamp-on-true / reset-to-0-on-false idiom (fire when elapsed >= threshold).
+  // ========================================================================
+  if (solaris_tz_sensor_) {
+    const int      ts      = int_values[SOLARIS_TS];
+    const float    pwr_kw  = int_values[SOLARIS_PWR] / 1000.0f;
+    const bool     running = (pwr_kw > TZ_POWER_ON_KW);
+    const bool     off     = !running;
+    const uint32_t now     = millis();
+
+    // Re-anchor after midnight reset or after an offline gap so stale hold
+    // timers cannot cause a spurious count. tz_acc_ is NOT touched here.
+    if (tz_rebaseline_pending_) {
+      last_ts_ = ts;
+      off_since_ = 0; rise_since_ = 0; drop_since_ = 0;
+      tz_rebaseline_pending_ = false;
+    }
+
+    // Track drop — no power gate. After 90s continuous drop, lower baseline (no gain).
+    if (ts < last_ts_) {
+      if (drop_since_ == 0) drop_since_ = now;
+      if ((now - drop_since_) >= DROP_HOLD_MS) {
+        last_ts_ = ts;
+        drop_since_ = 0;
+      }
+    } else {
+      drop_since_ = 0;
+    }
+
+    // Count rise — running only. After 90s continuous rise: rises ≤2 °C are
+    // counted; rises >2 °C re-baseline only (stale last_ts_ safety net).
+    if (running && ts > last_ts_) {
+      if (rise_since_ == 0) rise_since_ = now;
+      if ((now - rise_since_) >= RISE_HOLD_MS) {
+        const int rise = ts - last_ts_;
+        if (rise > 0 && rise <= TZ_RISE_CAP) tz_acc_ += rise;
+        last_ts_ = ts;  // re-baseline whether counted or capped
+        rise_since_ = 0;
+      }
+    } else {
+      rise_since_ = 0;
+    }
+
+    // Baseline while off — off only. After 3 min in off-state, snap baseline
+    // to current Ts so short pump-cycling gaps do not absorb uncounted rises.
+    if (off) {
+      if (off_since_ == 0) off_since_ = now;
+      if ((now - off_since_) >= OFF_BASELINE_HOLD_MS) {
+        if (last_ts_ != ts) last_ts_ = ts;
+        off_since_ = 0;
+      }
+    } else {
+      off_since_ = 0;
+    }
+
+    solaris_tz_sensor_->publish_state(tz_acc_);
+  }
+
+  // ========================================================================
+  // PUBLISH DELTA-T SENSOR - Spreizung (TV−TR differential)
+  // RPS4: Token[12] = Sollspreizung (controller-calculated target DT from
+  //       the T_K curve per manual Illustration 5-2; true set-point).
+  // RPS3: Istspreizung derived as TV−TR (measured actual spread — the
+  //       controller's calculated target DT is not transmitted on RPS3).
+  //       Only computed when P1 is running, P2 is off, AND at least 20 s
+  //       have elapsed since P2 turned off (flow stabilisation hold-off).
   // ========================================================================
   if (solaris_deltat_sensor_) {
     int deltat;
@@ -408,13 +487,13 @@ void DaikinRotexSolarisComponent::publish_values_(const int int_values[],
     } else {
       const bool p2_on = (int_values[SOLARIS_P2] != 0);
       if (p2_on) {
-        p2_off_time_ = 0;  // reset — P2 is running, hold-off not started
+        p2_off_time_ = 0;  // P2 running — reset hold-off timer
       } else if (p2_off_time_ == 0) {
         p2_off_time_ = millis();  // P2 just turned off — start hold-off timer
       }
 
       const bool p1_running = (int_values[SOLARIS_P1] > 0);
-      const bool held_off = (p2_off_time_ == 0) || ((millis() - p2_off_time_) < 20000);
+      const bool held_off   = (p2_off_time_ == 0) || ((millis() - p2_off_time_) < 30000);
       if (p1_running && !p2_on && !held_off) {
         deltat = int_values[SOLARIS_TV] - int_values[SOLARIS_TR];
         if (deltat < 0) deltat = 0;

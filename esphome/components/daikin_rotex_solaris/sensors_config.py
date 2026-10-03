@@ -13,6 +13,7 @@ from esphome.const import (
     DEVICE_CLASS_HEAT,
     DEVICE_CLASS_RUNNING,
     STATE_CLASS_MEASUREMENT,
+    STATE_CLASS_TOTAL_INCREASING,
     UNIT_CELSIUS,
     UNIT_KILOWATT,
     UNIT_PERCENT,
@@ -125,6 +126,18 @@ SENSORS_CONFIG = [
         'icon': 'mdi:thermometer-chevron-up',
         'device_class': DEVICE_CLASS_TEMPERATURE,
         'state_class': STATE_CLASS_MEASUREMENT,
+        'accuracy': 0,
+    },
+    # Daily solar storage temperature gain (Tz) — computed in C++, resets at midnight
+    {
+        'type': 'numeric',
+        'key': 'solaris_tz',
+        'display_name': lambda lang: get_sensor_name('solaris_tz', lang),
+        'setter': 'set_solaris_tz_sensor',
+        'unit': UNIT_CELSIUS,
+        'icon': 'mdi:thermometer-plus',
+        'device_class': DEVICE_CLASS_TEMPERATURE,
+        'state_class': STATE_CLASS_TOTAL_INCREASING,
         'accuracy': 0,
     },
     # ===============

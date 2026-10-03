@@ -11,7 +11,8 @@ SENSOR_NAMES_IT ={
     "solaris_p2": "Pompa di potenziamento",
     "solaris_errcode": "Codice errore",
     "solaris_errdesc": "Descrizione errore",
-    "solaris_deltat": "Differenziale target",
+    "solaris_deltat": "Differenziale",
+    "solaris_tz": "Incremento giornaliero temperatura accumulo",
 }
 
 ERROR_CODES_IT ={
